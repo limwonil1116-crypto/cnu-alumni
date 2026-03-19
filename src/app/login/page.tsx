@@ -1,6 +1,6 @@
 'use client';
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { TopBar } from '@/components/TopBar';
 import { Button, InputField, Alert } from '@/components/ui';
@@ -8,10 +8,18 @@ import { supabase } from '@/lib/supabase';
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [form, setForm] = useState({ email: '', pw: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [autoLogin, setAutoLogin] = useState(false);
+
+  useEffect(() => {
+    const errorParam = searchParams.get('error');
+    if (errorParam === 'pending') {
+      setError('관리자 승인 대기 중입니다. 승인 후 로그인하실 수 있습니다.');
+    }
+  }, [searchParams]);
 
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm(f => ({ ...f, [k]: e.target.value }));
@@ -24,7 +32,7 @@ export default function LoginPage() {
       return;
     }
     setLoading(true);
-    const { data, error } = await supabase.auth.signInWithPassword({
+    const { error } = await supabase.auth.signInWithPassword({
       email: form.email,
       password: form.pw,
     });
@@ -34,7 +42,6 @@ export default function LoginPage() {
       return;
     }
 
-    // 관리자 승인 확인
     const { data: alumni } = await supabase
       .from('alumni_master')
       .select('auth_status')
@@ -47,9 +54,7 @@ export default function LoginPage() {
       return;
     }
 
-    if (autoLogin) {
-      localStorage.setItem('autoLogin', 'true');
-    }
+    if (autoLogin) localStorage.setItem('autoLogin', 'true');
     router.push('/directory');
   };
 
@@ -60,9 +65,8 @@ export default function LoginPage() {
   return (
     <div className="flex flex-col min-h-dvh">
       <TopBar title="로그인" showBack backHref="/" />
-
       <div className="flex-1 px-5 py-6">
-        {/* 로고 */}
+
         <div className="flex items-center gap-3 mb-8">
           <div className="w-12 h-12 rounded-full bg-[#EBF0F8] flex items-center justify-center text-2xl">🎓</div>
           <div>
@@ -71,7 +75,11 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {error && <Alert variant="error" className="mb-4">{error}</Alert>}
+        {error && (
+          <Alert variant={error.includes('승인') ? 'warn' : 'error'} className="mb-4">
+            {error}
+          </Alert>
+        )}
 
         <InputField
           label="아이디 (이메일 형식)"
@@ -92,7 +100,6 @@ export default function LoginPage() {
           autoComplete="current-password"
         />
 
-        {/* 자동 로그인 */}
         <label className="flex items-center gap-2 mb-5 cursor-pointer">
           <input
             type="checkbox"
@@ -113,9 +120,7 @@ export default function LoginPage() {
 
         <div className="mt-4 pt-5 border-t border-[#D1D9E6] text-center">
           <span className="text-sm text-[#9CA3AF]">아직 계정이 없으신가요? </span>
-          <Link href="/signup" className="text-sm text-[#1B3F7B] font-semibold">
-            회원가입
-          </Link>
+          <Link href="/signup" className="text-sm text-[#1B3F7B] font-semibold">회원가입</Link>
         </div>
       </div>
     </div>
