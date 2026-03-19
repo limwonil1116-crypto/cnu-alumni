@@ -3,7 +3,6 @@ import Link from 'next/link';
 export default function StartPage() {
   return (
     <div className="flex flex-col min-h-dvh">
-      {/* Hero */}
       <div className="bg-gradient-to-b from-[#112B55] to-[#1B3F7B] px-6 pt-16 pb-10 text-center">
         <div className="w-20 h-20 rounded-full bg-white/10 mx-auto mb-5 flex items-center justify-center">
           <span className="text-4xl">🎓</span>
@@ -19,7 +18,6 @@ export default function StartPage() {
         </div>
       </div>
 
-      {/* Feature cards */}
       <div className="flex-1 px-5 py-6 bg-[#F4F6FA]">
         <div className="space-y-3 mb-8">
           {[
@@ -37,16 +35,22 @@ export default function StartPage() {
           ))}
         </div>
 
-        {/* CTAs */}
         <div className="space-y-3">
-          <Link href="/verify" className="flex items-center justify-center gap-2 w-full min-h-[54px] bg-[#1B3F7B] text-white rounded-[10px] text-[16px] font-semibold hover:bg-[#112B55] transition-colors active:scale-[0.98]">
-            본인 인증하기
+          <Link
+            href="/signup"
+            className="flex items-center justify-center w-full min-h-[54px] bg-[#1B3F7B] text-white rounded-xl text-[16px] font-semibold hover:bg-[#112B55] transition-colors"
+          >
+            회원가입
           </Link>
-          <Link href="/login" className="flex items-center justify-center w-full min-h-[54px] border-[1.5px] border-[#1B3F7B] text-[#1B3F7B] rounded-[10px] text-[16px] font-semibold hover:bg-[#EBF0F8] transition-colors active:scale-[0.98]">
+          <Link
+            href="/login"
+            className="flex items-center justify-center w-full min-h-[54px] border-[1.5px] border-[#1B3F7B] text-[#1B3F7B] rounded-xl text-[16px] font-semibold hover:bg-[#EBF0F8] transition-colors"
+          >
             로그인
           </Link>
         </div>
-        <div className="mt-5 flex justify-center gap-4 text-sm text-[#9CA3AF]">
+
+        <div className="mt-6 flex justify-center gap-4 text-sm text-[#9CA3AF]">
           <Link href="/policy" className="hover:text-[#1B3F7B]">개인정보 처리 안내</Link>
           <span>·</span>
           <Link href="/admin/login" className="hover:text-[#1B3F7B]">관리자 로그인</Link>

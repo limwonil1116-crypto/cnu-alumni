@@ -4,12 +4,14 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { TopBar } from '@/components/TopBar';
 import { Button, InputField, Alert } from '@/components/ui';
+import { supabase } from '@/lib/supabase';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [form, setForm] = useState({ id: '', pw: '' });
+  const [form, setForm] = useState({ email: '', pw: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [autoLogin, setAutoLogin] = useState(false);
 
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm(f => ({ ...f, [k]: e.target.value }));
@@ -17,22 +19,50 @@ export default function LoginPage() {
   };
 
   const handleLogin = async () => {
-    if (!form.id.trim() || !form.pw.trim()) {
-      setError('이메일/휴대폰 번호와 비밀번호를 입력해 주세요.');
+    if (!form.email.trim() || !form.pw.trim()) {
+      setError('아이디와 비밀번호를 입력해 주세요.');
       return;
     }
     setLoading(true);
-    await new Promise(r => setTimeout(r, 1200));
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: form.email,
+      password: form.pw,
+    });
     setLoading(false);
-    // 데모: 아무 값이나 입력하면 로그인 성공
+    if (error) {
+      setError('아이디 또는 비밀번호가 올바르지 않습니다.');
+      return;
+    }
+
+    // 관리자 승인 확인
+    const { data: alumni } = await supabase
+      .from('alumni_master')
+      .select('auth_status')
+      .eq('email', form.email)
+      .single();
+
+    if (alumni?.auth_status === 'pending') {
+      await supabase.auth.signOut();
+      setError('관리자 승인 대기 중입니다. 승인 후 로그인하실 수 있습니다.');
+      return;
+    }
+
+    if (autoLogin) {
+      localStorage.setItem('autoLogin', 'true');
+    }
     router.push('/directory');
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') handleLogin();
   };
 
   return (
     <div className="flex flex-col min-h-dvh">
       <TopBar title="로그인" showBack backHref="/" />
+
       <div className="flex-1 px-5 py-6">
-        {/* 로고 영역 */}
+        {/* 로고 */}
         <div className="flex items-center gap-3 mb-8">
           <div className="w-12 h-12 rounded-full bg-[#EBF0F8] flex items-center justify-center text-2xl">🎓</div>
           <div>
@@ -44,11 +74,12 @@ export default function LoginPage() {
         {error && <Alert variant="error" className="mb-4">{error}</Alert>}
 
         <InputField
-          label="이메일 또는 휴대폰 번호"
-          placeholder="example@cnu.ac.kr 또는 010-0000-0000"
-          type="text"
-          value={form.id}
-          onChange={set('id')}
+          label="아이디 (이메일 형식)"
+          placeholder="example@cnu.ac.kr"
+          type="email"
+          value={form.email}
+          onChange={set('email')}
+          onKeyDown={handleKeyDown}
           autoComplete="username"
         />
         <InputField
@@ -57,27 +88,34 @@ export default function LoginPage() {
           type="password"
           value={form.pw}
           onChange={set('pw')}
+          onKeyDown={handleKeyDown}
           autoComplete="current-password"
         />
 
-        <Button variant="primary" size="lg" fullWidth loading={loading} onClick={handleLogin} className="mt-2">
+        {/* 자동 로그인 */}
+        <label className="flex items-center gap-2 mb-5 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={autoLogin}
+            onChange={e => setAutoLogin(e.target.checked)}
+            className="w-4 h-4 accent-[#1B3F7B] cursor-pointer"
+          />
+          <span className="text-sm text-[#4B5563]">자동 로그인</span>
+        </label>
+
+        <Button variant="primary" size="lg" fullWidth loading={loading} onClick={handleLogin}>
           {loading ? '로그인 중...' : '로그인'}
         </Button>
 
-        <button className="w-full text-center text-sm text-[#2A5BA8] mt-4 py-2 hover:underline">
-          비밀번호 재설정
+        <button className="w-full text-center text-sm text-[#9CA3AF] mt-3 py-2 hover:text-[#1B3F7B] transition-colors">
+          비밀번호를 잊으셨나요?
         </button>
 
-        <div className="mt-6 pt-5 border-t border-[#D1D9E6] text-center">
-          <p className="text-sm text-[#9CA3AF] mb-2">아직 인증을 완료하지 않으셨나요?</p>
-          <Link href="/verify" className="text-sm text-[#1B3F7B] font-semibold">
-            본인 인증하기 →
+        <div className="mt-4 pt-5 border-t border-[#D1D9E6] text-center">
+          <span className="text-sm text-[#9CA3AF]">아직 계정이 없으신가요? </span>
+          <Link href="/signup" className="text-sm text-[#1B3F7B] font-semibold">
+            회원가입
           </Link>
-        </div>
-
-        <div className="mt-4 p-3 bg-[#FEF3C7] border border-[#FCD34D] rounded-xl">
-          <p className="text-xs text-[#B45309] font-medium mb-0.5">📌 데모 안내</p>
-          <p className="text-xs text-[#92400E]">이메일/비밀번호 아무 값이나 입력하면 디렉터리로 이동합니다</p>
         </div>
       </div>
     </div>
