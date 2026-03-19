@@ -1,13 +1,14 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
-export default function EditProfilePage() {
+export default function EditAlumniPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [alumniId, setAlumniId] = useState('');
+  const [name, setName] = useState('');
   const [form, setForm] = useState({
     company: '', job_title: '', region: '', bio: '',
     phone: '', photo_url: '', card_image_url: '',
@@ -15,17 +16,17 @@ export default function EditProfilePage() {
 
   useEffect(() => {
     const fetch = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { router.push('/'); return; }
-
       const { data } = await supabase
         .from('alumni_master')
-        .select(`id, phone, alumni_profiles (company, job_title, region, bio, photo_url, card_image_url)`)
-        .eq('email', user.email || '')
+        .select(`
+          id, name, phone,
+          alumni_profiles (company, job_title, region, bio, photo_url, card_image_url)
+        `)
+        .eq('id', id)
         .single();
 
       if (data) {
-        setAlumniId(data.id);
+        setName(data.name);
         const p = (data as any).alumni_profiles?.[0];
         setForm({
           company: p?.company || '',
@@ -40,7 +41,7 @@ export default function EditProfilePage() {
       setLoading(false);
     };
     fetch();
-  }, [router]);
+  }, [id]);
 
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm(f => ({ ...f, [k]: e.target.value }));
@@ -49,14 +50,12 @@ export default function EditProfilePage() {
     if (!confirm('저장하시겠습니까?')) return;
     setSaving(true);
 
-    // phone 업데이트
-    await supabase.from('alumni_master').update({ phone: form.phone }).eq('id', alumniId);
+    await supabase.from('alumni_master').update({ phone: form.phone || null }).eq('id', id);
 
-    // profile upsert
     const { data: existing } = await supabase
       .from('alumni_profiles')
       .select('id')
-      .eq('alumni_id', alumniId)
+      .eq('alumni_id', id)
       .single();
 
     if (existing) {
@@ -67,10 +66,10 @@ export default function EditProfilePage() {
         bio: form.bio || null,
         photo_url: form.photo_url || null,
         card_image_url: form.card_image_url || null,
-      }).eq('alumni_id', alumniId);
+      }).eq('alumni_id', id);
     } else {
       await supabase.from('alumni_profiles').insert({
-        alumni_id: alumniId,
+        alumni_id: id,
         company: form.company || null,
         job_title: form.job_title || null,
         region: form.region || null,
@@ -81,7 +80,7 @@ export default function EditProfilePage() {
     }
 
     setSaving(false);
-    router.push('/mypage');
+    router.push(`/directory/${id}`);
   };
 
   if (loading) return (
@@ -115,7 +114,10 @@ export default function EditProfilePage() {
         >
           <span className="text-[#1B3F7B] text-lg">←</span>
         </button>
-        <p className="font-bold text-[#111827] flex-1">프로필 수정</p>
+        <div className="flex-1">
+          <p className="font-bold text-[#111827]">{name} 프로필 수정</p>
+          <p className="text-xs text-[#9CA3AF]">모든 동문이 수정 가능합니다</p>
+        </div>
         <button
           onClick={handleSave}
           disabled={saving}
@@ -127,16 +129,16 @@ export default function EditProfilePage() {
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-2 pb-10">
+      <div className="flex-1 overflow-y-auto px-4 py-2 pb-10 space-y-3">
 
         {/* 연락처 */}
-        <div className="bg-white rounded-2xl p-4 mb-3 shadow-sm border border-[#E5EAF2]">
+        <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#E5EAF2]">
           <p className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider mb-3">연락처</p>
           <Field label="휴대폰" k="phone" placeholder="01047581293" type="tel" />
         </div>
 
         {/* 직장 */}
-        <div className="bg-white rounded-2xl p-4 mb-3 shadow-sm border border-[#E5EAF2]">
+        <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#E5EAF2]">
           <p className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider mb-3">직장</p>
           <Field label="회사명" k="company" placeholder="한국농어촌공사" />
           <Field label="직무/직책" k="job_title" placeholder="사원" />
@@ -144,7 +146,7 @@ export default function EditProfilePage() {
         </div>
 
         {/* 소개 */}
-        <div className="bg-white rounded-2xl p-4 mb-3 shadow-sm border border-[#E5EAF2]">
+        <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#E5EAF2]">
           <p className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider mb-3">소개</p>
           <label className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider mb-1.5 block">자기소개</label>
           <textarea
@@ -156,12 +158,14 @@ export default function EditProfilePage() {
           />
         </div>
 
-        {/* 사진/명함 URL */}
-        <div className="bg-white rounded-2xl p-4 mb-3 shadow-sm border border-[#E5EAF2]">
+        {/* 사진/명함 */}
+        <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#E5EAF2]">
           <p className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider mb-3">사진 & 명함</p>
           <Field label="프로필 사진 URL" k="photo_url" placeholder="https://..." />
           <Field label="명함 이미지 URL" k="card_image_url" placeholder="https://..." />
-          <p className="text-xs text-[#9CA3AF] mt-1">이미지를 업로드하려면 구글 드라이브나 이미지 호스팅 서비스를 이용해 주세요</p>
+          <p className="text-xs text-[#9CA3AF] mt-1">
+            이미지 URL은 구글 드라이브 공유 링크 또는 이미지 호스팅 서비스를 이용해 주세요
+          </p>
         </div>
 
       </div>

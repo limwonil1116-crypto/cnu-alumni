@@ -1,59 +1,144 @@
-import Link from 'next/link';
+'use client';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
 
 export default function StartPage() {
+  const router = useRouter();
+  const [kakaoLoading, setKakaoLoading] = useState(false);
+  const [emailLoading, setEmailLoading] = useState(false);
+  const [showEmail, setShowEmail] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+
+  const handleKakao = async () => {
+    setKakaoLoading(true);
+    await supabase.auth.signInWithOAuth({
+      provider: 'kakao',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+        scopes: 'profile_nickname profile_image account_email',
+      },
+    });
+  };
+
+  const handleEmail = async () => {
+    setError('');
+    if (!email || !password) { setError('이메일과 비밀번호를 입력해 주세요.'); return; }
+    setEmailLoading(true);
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      // 로그인 실패시 회원가입 시도
+      const { error: signUpError } = await supabase.auth.signUp({ email, password });
+      if (signUpError) {
+        setError('로그인에 실패했습니다. 다시 시도해 주세요.');
+        setEmailLoading(false);
+        return;
+      }
+    }
+    setEmailLoading(false);
+    router.push('/directory');
+  };
+
   return (
-    <div className="flex flex-col min-h-dvh">
-      <div className="bg-gradient-to-b from-[#112B55] to-[#1B3F7B] px-6 pt-16 pb-10 text-center">
-        <div className="w-20 h-20 rounded-full bg-white/10 mx-auto mb-5 flex items-center justify-center">
-          <span className="text-4xl">🎓</span>
-        </div>
-        <h1 className="text-white text-2xl font-bold mb-2 leading-tight">
-          충남대학교<br />동문 디렉터리
-        </h1>
-        <p className="text-white/70 text-sm leading-relaxed">
-          인증된 졸업생만 이용할 수 있는<br />폐쇄형 동문 네트워크 서비스
-        </p>
-        <div className="mt-4 inline-flex items-center gap-1.5 bg-[#C8941A]/20 text-[#F0BE50] px-3 py-1.5 rounded-full text-xs font-medium">
-          <span>🔒</span> 동문 전용 서비스
+    <div className="flex flex-col min-h-dvh bg-[#F5F7FA]">
+      {/* 헤더 */}
+      <div className="bg-[#1B3F7B] px-6 pt-16 pb-12 text-center relative overflow-hidden">
+        <div className="absolute inset-0 opacity-10"
+          style={{ backgroundImage: 'radial-gradient(circle at 20% 50%, white 0%, transparent 50%), radial-gradient(circle at 80% 20%, white 0%, transparent 40%)' }}
+        />
+        <div className="relative">
+          <div className="w-20 h-20 rounded-2xl bg-white/15 mx-auto mb-4 flex items-center justify-center backdrop-blur-sm border border-white/20">
+            <span className="text-4xl">🎓</span>
+          </div>
+          <h1 className="text-white text-2xl font-bold mb-2">충남대학교</h1>
+          <p className="text-white/80 text-lg font-medium mb-1">동문 디렉터리</p>
+          <p className="text-white/50 text-sm">CNU Alumni Directory</p>
         </div>
       </div>
 
-      <div className="flex-1 px-5 py-6 bg-[#F4F6FA]">
-        <div className="space-y-3 mb-8">
-          {[
-            { icon: '🔍', title: '동문 전용 조회', desc: '인증된 졸업생끼리만 서로의 정보를 확인할 수 있습니다' },
-            { icon: '📋', title: '관리자 사전 등록 기반', desc: '관리자가 등록한 졸업생 명단을 기반으로 운영됩니다' },
-            { icon: '🛡️', title: '개인정보 보호', desc: '외부 공개 차단, 최소 정보 공개 원칙을 적용합니다' },
-          ].map(f => (
-            <div key={f.title} className="bg-white border border-[#D1D9E6] rounded-xl p-4 flex items-start gap-4">
-              <span className="text-2xl mt-0.5">{f.icon}</span>
-              <div>
-                <p className="font-semibold text-[#111827] mb-1">{f.title}</p>
-                <p className="text-sm text-[#4B5563] leading-relaxed">{f.desc}</p>
-              </div>
-            </div>
-          ))}
+      {/* 로그인 영역 */}
+      <div className="flex-1 px-5 py-8 flex flex-col">
+        <p className="text-center text-[#4B5563] text-sm mb-6">
+          충남대학교 졸업생 전용 네트워크입니다
+        </p>
+
+        {error && (
+          <div className="bg-[#FEE2E2] text-[#DC2626] px-4 py-3 rounded-xl text-sm mb-4">
+            {error}
+          </div>
+        )}
+
+        {/* 카카오 로그인 */}
+        <button
+          onClick={handleKakao}
+          disabled={kakaoLoading}
+          className="w-full min-h-[56px] bg-[#FEE500] text-[#191919] rounded-2xl text-[16px] font-bold flex items-center justify-center gap-3 hover:bg-[#F0D800] transition-all mb-3 shadow-sm disabled:opacity-70 active:scale-[0.98]"
+        >
+          {kakaoLoading ? (
+            <span className="w-5 h-5 border-2 border-[#191919]/40 border-t-[#191919] rounded-full animate-spin" />
+          ) : (
+            <>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="#191919">
+                <path d="M12 3C6.477 3 2 6.477 2 10.8c0 2.7 1.633 5.085 4.1 6.525L5.1 21l4.65-2.475c.735.1 1.485.15 2.25.15 5.523 0 10-3.477 10-7.875C22 6.477 17.523 3 12 3z"/>
+              </svg>
+              카카오로 로그인
+            </>
+          )}
+        </button>
+
+        {/* 구분선 */}
+        <div className="flex items-center gap-3 my-3">
+          <div className="flex-1 h-px bg-[#E5EAF2]" />
+          <span className="text-xs text-[#9CA3AF]">또는</span>
+          <div className="flex-1 h-px bg-[#E5EAF2]" />
         </div>
 
-        <div className="space-y-3">
-          <Link
-            href="/signup"
-            className="flex items-center justify-center w-full min-h-[54px] bg-[#1B3F7B] text-white rounded-xl text-[16px] font-semibold hover:bg-[#112B55] transition-colors"
+        {/* 이메일 로그인 */}
+        {!showEmail ? (
+          <button
+            onClick={() => setShowEmail(true)}
+            className="w-full min-h-[56px] bg-white border-[1.5px] border-[#E5EAF2] text-[#1B3F7B] rounded-2xl text-[15px] font-semibold hover:border-[#1B3F7B] hover:bg-[#EBF0F8] transition-all"
           >
-            회원가입
-          </Link>
-          <Link
-            href="/login"
-            className="flex items-center justify-center w-full min-h-[54px] border-[1.5px] border-[#1B3F7B] text-[#1B3F7B] rounded-xl text-[16px] font-semibold hover:bg-[#EBF0F8] transition-colors"
-          >
-            로그인
-          </Link>
-        </div>
+            이메일로 로그인
+          </button>
+        ) : (
+          <div className="space-y-3">
+            <input
+              type="email"
+              placeholder="이메일 주소"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              className="w-full px-4 py-3.5 border-[1.5px] border-[#E5EAF2] rounded-2xl text-[15px] outline-none focus:border-[#1B3F7B] transition-colors bg-white"
+            />
+            <input
+              type="password"
+              placeholder="비밀번호"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              className="w-full px-4 py-3.5 border-[1.5px] border-[#E5EAF2] rounded-2xl text-[15px] outline-none focus:border-[#1B3F7B] transition-colors bg-white"
+              onKeyDown={e => e.key === 'Enter' && handleEmail()}
+            />
+            <button
+              onClick={handleEmail}
+              disabled={emailLoading}
+              className="w-full min-h-[56px] bg-[#1B3F7B] text-white rounded-2xl text-[15px] font-semibold hover:bg-[#112B55] transition-all disabled:opacity-70 flex items-center justify-center gap-2"
+            >
+              {emailLoading ? (
+                <span className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+              ) : '로그인 / 가입'}
+            </button>
+            <button onClick={() => setShowEmail(false)} className="w-full text-center text-sm text-[#9CA3AF] py-1">
+              취소
+            </button>
+          </div>
+        )}
 
-        <div className="mt-6 flex justify-center gap-4 text-sm text-[#9CA3AF]">
-          <Link href="/policy" className="hover:text-[#1B3F7B]">개인정보 처리 안내</Link>
-          <span>·</span>
-          <Link href="/admin/login" className="hover:text-[#1B3F7B]">관리자 로그인</Link>
+        <div className="mt-auto pt-8 text-center">
+          <p className="text-xs text-[#9CA3AF] leading-relaxed">
+            로그인 시 개인정보 처리방침에 동의하는 것으로 간주합니다
+          </p>
         </div>
       </div>
     </div>
