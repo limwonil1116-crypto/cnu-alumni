@@ -1,26 +1,22 @@
 {
-  "name": "충남대학교 동문 디렉터리",
-  "short_name": "CNU 동문",
-  "description": "인증된 충남대학교 졸업생만 이용할 수 있는 동문 전용 네트워크",
+  "name": "충청지역 백마회",
+  "short_name": "백마회",
+  "description": "한국농어촌공사 충청지역 충남대 동문 네트워크",
   "start_url": "/",
   "display": "standalone",
+  "background_color": "#1B63C6",
+  "theme_color": "#1B63C6",
   "orientation": "portrait",
-  "background_color": "#1B3F7B",
-  "theme_color": "#1B3F7B",
   "icons": [
     {
       "src": "/icon-192.png",
       "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
+      "type": "image/png"
     },
     {
       "src": "/icon-512.png",
       "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
+      "type": "image/png"
     }
-  ],
-  "categories": ["education", "social"],
-  "lang": "ko"
+  ]
 }

@@ -1,32 +1,27 @@
 @import "tailwindcss";
 
 :root {
-  --cnu-primary: #1B3F7B;
-  --cnu-primary-dark: #112B55;
-  --cnu-primary-mid: #2A5BA8;
-  --cnu-primary-light: #3B72D1;
-  --cnu-accent: #C8941A;
-  --cnu-accent-light: #F0BE50;
+  --cnu-navy: #1B3F7B;
+  --cnu-navy-dark: #112B55;
+  --cnu-blue: #2A5BA8;
+  --cnu-light: #EBF0F8;
   --surface: #FFFFFF;
-  --surface-2: #F4F6FA;
-  --surface-3: #EBF0F8;
-  --text-primary: #111827;
-  --text-secondary: #4B5563;
-  --text-muted: #9CA3AF;
-  --text-on-primary: #FFFFFF;
-  --border: #D1D9E6;
-  --border-focus: #2A5BA8;
+  --surface-2: #F5F7FA;
+  --surface-3: #EAEEF5;
+  --text-1: #111827;
+  --text-2: #4B5563;
+  --text-3: #9CA3AF;
+  --border: #E5EAF2;
   --success: #15803D;
   --success-bg: #DCFCE7;
   --warn: #B45309;
   --warn-bg: #FEF3C7;
   --error: #DC2626;
   --error-bg: #FEE2E2;
-  --info-bg: #EBF0F8;
-  --radius: 12px;
-  --radius-sm: 8px;
-  --shadow-sm: 0 1px 3px rgba(27,63,123,0.08);
-  --shadow-md: 0 4px 12px rgba(27,63,123,0.12);
+  --radius: 16px;
+  --radius-sm: 10px;
+  --shadow: 0 2px 12px rgba(27,63,123,0.08);
+  --shadow-lg: 0 8px 32px rgba(27,63,123,0.12);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -34,7 +29,7 @@
 body {
   font-family: 'Apple SD Gothic Neo', 'Pretendard', 'Noto Sans KR', '-apple-system', sans-serif;
   background: var(--surface-2);
-  color: var(--text-primary);
+  color: var(--text-1);
   line-height: 1.6;
 }
 
@@ -43,8 +38,7 @@ body {
   margin: 0 auto;
   min-height: 100dvh;
   background: var(--surface);
-  box-shadow: var(--shadow-md);
+  position: relative;
 }
 
-::-webkit-scrollbar { width: 4px; }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+::-webkit-scrollbar { width: 0px; }

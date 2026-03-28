@@ -26,10 +26,11 @@ export default function SignupPage() {
 
   const handleKakao = async () => {
     setKakaoLoading(true);
+    document.cookie = 'signup_in_progress=true; path=/; max-age=300';
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'kakao',
       options: {
-        redirectTo: `${window.location.origin}/auth/callback?signup=true`,
+        redirectTo: `${window.location.origin}/auth/callback`,
         scopes: 'profile_nickname profile_image account_email',
       },
     });
@@ -93,7 +94,6 @@ export default function SignupPage() {
     <div className="flex flex-col min-h-dvh">
       <TopBar title="회원가입" showBack backHref="/" />
 
-      {/* 단계 표시 */}
       <div className="px-5 py-3 bg-white border-b border-[#D1D9E6]">
         <div className="flex items-center gap-2">
           {[1,2,3].map((s, i) => (
@@ -113,7 +113,6 @@ export default function SignupPage() {
       <div className="flex-1 overflow-y-auto px-5 py-5">
         {error && <Alert variant="error" className="mb-4">{error}</Alert>}
 
-        {/* STEP 1 - 본인 인증 */}
         {step === 1 && (
           <>
             <p className="text-sm text-[#4B5563] mb-6">본인 확인을 위해 인증 방법을 선택해 주세요.</p>
@@ -159,7 +158,6 @@ export default function SignupPage() {
           </>
         )}
 
-        {/* STEP 2 - 아이디/비밀번호 */}
         {step === 2 && (
           <>
             <p className="text-sm text-[#4B5563] mb-5">로그인에 사용할 아이디와 비밀번호를 등록해 주세요.</p>
@@ -173,7 +171,6 @@ export default function SignupPage() {
           </>
         )}
 
-        {/* STEP 3 - 개인정보 */}
         {step === 3 && (
           <>
             <p className="text-sm text-[#4B5563] mb-5">동문 명단 확인을 위해 아래 정보를 입력해 주세요.</p>

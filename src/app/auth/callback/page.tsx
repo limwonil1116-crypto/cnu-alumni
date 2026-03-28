@@ -5,45 +5,31 @@ import { supabase } from '@/lib/supabase';
 
 export default function AuthCallbackPage() {
   const router = useRouter();
-
   useEffect(() => {
-    const handleCallback = async () => {
-      const { data: { session }, error } = await supabase.auth.getSession();
-
-      if (error || !session) {
-        router.push('/login');
-        return;
+    const handleAuth = async () => {
+      const hash = window.location.hash;
+      if (hash && hash.includes('access_token')) {
+        await new Promise(r => setTimeout(r, 1500));
       }
-
-      const user = session.user;
-
-      // alumni_master 에 등록된 사용자인지 확인
-      const { data: alumni } = await supabase
-        .from('alumni_master')
-        .select('auth_status')
-        .eq('email', user.email)
-        .single();
-
-      if (!alumni) {
-        // DB에 없으면 신규 가입자 → 개인정보 입력
-        router.push('/signup/profile');
-      } else if (alumni.auth_status === 'pending') {
-        // 승인 대기 중
-        await supabase.auth.signOut();
-        router.push('/login?error=pending');
-      } else {
-        // 승인 완료 → 디렉터리
-        router.push('/directory');
+      for (let i = 0; i < 5; i++) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          router.replace('/home'); // ← /directory 에서 /home 으로 변경
+          return;
+        }
+        await new Promise(r => setTimeout(r, 800));
       }
+      router.replace('/');
     };
-
-    handleCallback();
+    handleAuth();
   }, [router]);
 
   return (
-    <div className="flex flex-col min-h-dvh items-center justify-center">
-      <div className="w-10 h-10 border-4 border-[#1B3F7B] border-t-transparent rounded-full animate-spin mb-4" />
-      <p className="text-sm text-[#4B5563]">로그인 처리 중...</p>
+    <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#f0f4f8', fontFamily: "'Apple SD Gothic Neo','Noto Sans KR',sans-serif" }}>
+      <div style={{ width: 40, height: 40, border: '4px solid #e2e8f0', borderTop: '4px solid #1B3F7B', borderRadius: '50%', animation: 'spin 0.7s linear infinite', marginBottom: 16 }} />
+      <p style={{ fontSize: 14, color: '#64748b', fontWeight: 500 }}>로그인 처리 중...</p>
+      <p style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>잠시만 기다려주세요</p>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
   );
 }

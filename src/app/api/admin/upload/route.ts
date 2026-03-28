@@ -21,21 +21,10 @@ export async function POST(req: NextRequest) {
     const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, '').replace(/\r/g, ''))
 
     const results = {
-      total: 0,
-      success: 0,
-      duplicate: 0,
-      error: 0,
+      total: 0, success: 0, duplicate: 0, error: 0,
       errors: [] as { row: number; reason: string }[]
     }
 
-    // 학과 목록 가져오기
-    const { data: departments } = await supabase
-      .from('department_master')
-      .select('id, name')
-
-    const deptMap = new Map(departments?.map(d => [d.name, d.id]) || [])
-
-    // 헤더 인덱스 찾기
     const idx = {
       name: headers.indexOf('이름'),
       dept: headers.indexOf('학과'),
@@ -48,20 +37,15 @@ export async function POST(req: NextRequest) {
       region: headers.indexOf('지역'),
     }
 
-    // 이름 컬럼만 필수
     if (idx.name === -1) {
-      return NextResponse.json({
-        error: '필수 컬럼(이름)이 없습니다. 헤더를 확인해주세요.'
-      }, { status: 400 })
+      return NextResponse.json({ error: '필수 컬럼(이름)이 없습니다' }, { status: 400 })
     }
 
-    // 덮어쓰기 모드면 기존 데이터 삭제
     if (mode === 'replace') {
       await supabase.from('alumni_profiles').delete().neq('id', '00000000-0000-0000-0000-000000000000')
       await supabase.from('alumni_master').delete().neq('id', '00000000-0000-0000-0000-000000000000')
     }
 
-    // 데이터 행 처리
     for (let i = 1; i < lines.length; i++) {
       const line = lines[i].replace(/\r/g, '')
       if (!line.trim()) continue
@@ -79,55 +63,36 @@ export async function POST(req: NextRequest) {
       const jobTitle = idx.jobTitle >= 0 ? cols[idx.jobTitle] || '' : ''
       const region = idx.region >= 0 ? cols[idx.region] || '' : ''
 
-      // 이름 필수 확인
       if (!name) {
         results.error++
         results.errors.push({ row: i + 1, reason: '이름 누락' })
         continue
       }
 
-      // 이메일 있을 때만 중복 확인
-      if (email) {
-        const { data: existing } = await supabase
-          .from('alumni_master')
-          .select('id')
-          .eq('email', email)
-          .single()
-
-        if (existing) {
-          results.duplicate++
-          results.errors.push({ row: i + 1, reason: `중복 이메일 (${email})` })
-          continue
-        }
-      }
-
-      // 이름+연락처로 중복 확인 (이메일 없을 때)
-      if (!email && phone) {
+      // 중복 확인 (이름 + 입학년도)
+      if (name && admissionYear) {
         const { data: existing } = await supabase
           .from('alumni_master')
           .select('id')
           .eq('name', name)
-          .eq('phone', phone)
+          .eq('admission_year', admissionYear)
           .single()
 
         if (existing) {
           results.duplicate++
-          results.errors.push({ row: i + 1, reason: `중복 데이터 (${name}, ${phone})` })
+          results.errors.push({ row: i + 1, reason: `중복 (${name}, ${admissionYear})` })
           continue
         }
       }
 
-      // 학과 ID 찾기
-      const deptId = deptName ? deptMap.get(deptName) || null : null
-
-      // alumni_master 삽입
+      // alumni_master 삽입 (department_name 직접 저장)
       const { data: newAlumni, error: insertError } = await supabase
         .from('alumni_master')
         .insert({
           name,
           email: email || null,
           phone: phone || null,
-          department_id: deptId,
+          department_name: deptName || null,
           admission_year: admissionYear,
           graduation_year: graduationYear,
           auth_status: 'active'
@@ -137,7 +102,7 @@ export async function POST(req: NextRequest) {
 
       if (insertError || !newAlumni) {
         results.error++
-        results.errors.push({ row: i + 1, reason: `저장 실패: ${insertError?.message || '알 수 없는 오류'}` })
+        results.errors.push({ row: i + 1, reason: `저장 실패: ${insertError?.message || '오류'}` })
         continue
       }
 

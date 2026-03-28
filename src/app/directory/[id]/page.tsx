@@ -1,7 +1,8 @@
 'use client';
-import { use, useState, useEffect } from 'react';
+import { use, useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { uploadImage } from '@/lib/uploadImage';
 
 interface AlumniDetail {
   id: string;
@@ -13,33 +14,21 @@ interface AlumniDetail {
   email?: string;
   company?: string;
   job_title?: string;
-  department_detail?: string;
   region?: string;
   address?: string;
   bio?: string;
   photo_url?: string;
   card_image_url?: string;
+  profile_id?: string;
 }
 
-function InfoRow({ icon, label, value, onCopy }: {
-  icon: string; label: string; value?: string; onCopy?: () => void;
-}) {
-  if (!value) return null;
-  return (
-    <div className="flex items-center gap-3 py-3 border-b border-[#F0F4FA] last:border-0">
-      <span className="text-lg w-8 text-center flex-shrink-0">{icon}</span>
-      <div className="flex-1 min-w-0">
-        <p className="text-xs text-[#9CA3AF] mb-0.5">{label}</p>
-        <p className="text-sm text-[#111827] font-medium truncate">{value}</p>
-      </div>
-      {onCopy && (
-        <button onClick={onCopy} className="text-xs text-[#2A5BA8] bg-[#EBF0F8] px-2.5 py-1 rounded-lg flex-shrink-0">
-          복사
-        </button>
-      )}
-    </div>
-  );
-}
+const avatarColor = (name: string) => {
+  const colors = [['#1B63C6','#3B82F6'],['#7C3AED','#A78BFA'],['#059669','#34D399'],['#DC2626','#F87171'],['#D97706','#FBBF24'],['#0891B2','#22D3EE']];
+  const c = colors[(name.charCodeAt(0)||0) % colors.length];
+  return 'linear-gradient(135deg,' + c[0] + ',' + c[1] + ')';
+};
+
+const F = { fontFamily:"'Apple SD Gothic Neo','Noto Sans KR',sans-serif" };
 
 export default function ProfileDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -48,218 +37,307 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState('');
   const [showCard, setShowCard] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [uploadingCard, setUploadingCard] = useState(false);
+  const photoRef = useRef<HTMLInputElement>(null);
+  const cardRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    const fetch = async () => {
-      const { data } = await supabase
-        .from('alumni_master')
-        .select(`
-          id, name, phone, email, admission_year, graduation_year,
-          alumni_profiles (company, job_title, region, bio, photo_url, card_image_url),
-          department_master (name)
-        `)
-        .eq('id', id)
-        .single();
+  const [form, setForm] = useState({
+    company: '', job_title: '', region: '', address: '', bio: '', phone: '',
+    photo_url: '', card_image_url: '',
+  });
 
-      if (data) {
-        setAlumni({
-          id: data.id,
-          name: data.name,
-          department: (data as any).department_master?.name || '',
-          admission_year: data.admission_year,
-          graduation_year: data.graduation_year,
-          phone: data.phone,
-          email: data.email,
-          company: (data as any).alumni_profiles?.[0]?.company,
-          job_title: (data as any).alumni_profiles?.[0]?.job_title,
-          region: (data as any).alumni_profiles?.[0]?.region,
-          bio: (data as any).alumni_profiles?.[0]?.bio,
-          photo_url: (data as any).alumni_profiles?.[0]?.photo_url,
-          card_image_url: (data as any).alumni_profiles?.[0]?.card_image_url,
-        });
-      }
-      setLoading(false);
-    };
-    fetch();
-  }, [id]);
+  const fetchData = async () => {
+    const { data } = await supabase
+      .from('alumni_master')
+      .select('id, name, phone, email, admission_year, graduation_year, department_name, alumni_profiles (id, company, job_title, region, address, bio, photo_url, card_image_url)')
+      .eq('id', id)
+      .single();
+
+    if (data) {
+      const p = (data as any).alumni_profiles?.[0];
+      const detail: AlumniDetail = {
+        id: data.id,
+        name: data.name,
+        department: (data as any).department_name || '',
+        admission_year: data.admission_year,
+        graduation_year: data.graduation_year,
+        phone: data.phone,
+        email: data.email,
+        company: p?.company,
+        job_title: p?.job_title,
+        region: p?.region,
+        address: p?.address,
+        bio: p?.bio,
+        photo_url: p?.photo_url,
+        card_image_url: p?.card_image_url,
+        profile_id: p?.id,
+      };
+      setAlumni(detail);
+      setForm({
+        company: p?.company || '',
+        job_title: p?.job_title || '',
+        region: p?.region || '',
+        address: p?.address || '',
+        bio: p?.bio || '',
+        phone: data.phone || '',
+        photo_url: p?.photo_url || '',
+        card_image_url: p?.card_image_url || '',
+      });
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => { fetchData(); }, [id]);
+
+  const showToast = (msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(''), 2500);
+  };
 
   const copy = async (text: string, label: string) => {
     await navigator.clipboard.writeText(text).catch(() => {});
-    setToast(`${label} 복사됨`);
-    setTimeout(() => setToast(''), 2000);
+    showToast(label + ' 복사됨');
   };
 
-  const getGradientColor = (name: string) => {
-    const colors = [
-      ['#1B3F7B', '#2A5BA8'],
-      ['#1B5E7B', '#1B8FA8'],
-      ['#3B1B7B', '#6B2A8A'],
-      ['#7B1B3B', '#A82A5B'],
-      ['#1B6B3B', '#2A8A5B'],
-    ];
-    return colors[name.charCodeAt(0) % colors.length];
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingPhoto(true);
+    const url = await uploadImage(file, 'profiles');
+    if (url) { setForm(f => ({ ...f, photo_url: url })); showToast('사진 업로드 완료'); }
+    else showToast('업로드 실패');
+    setUploadingPhoto(false);
+  };
+
+  const handleCardUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingCard(true);
+    const url = await uploadImage(file, 'cards');
+    if (url) { setForm(f => ({ ...f, card_image_url: url })); showToast('명함 업로드 완료'); }
+    else showToast('업로드 실패');
+    setUploadingCard(false);
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    await supabase.from('alumni_master').update({ phone: form.phone || null }).eq('id', id);
+    if (alumni?.profile_id) {
+      await supabase.from('alumni_profiles').update({
+        company: form.company || null,
+        job_title: form.job_title || null,
+        region: form.region || null,
+        address: form.address || null,
+        bio: form.bio || null,
+        photo_url: form.photo_url || null,
+        card_image_url: form.card_image_url || null,
+      }).eq('id', alumni.profile_id);
+    } else {
+      await supabase.from('alumni_profiles').insert({
+        alumni_id: id,
+        company: form.company || null,
+        job_title: form.job_title || null,
+        region: form.region || null,
+        address: form.address || null,
+        bio: form.bio || null,
+        photo_url: form.photo_url || null,
+        card_image_url: form.card_image_url || null,
+      });
+    }
+    await fetchData();
+    setSaving(false);
+    setEditMode(false);
+    showToast('저장되었습니다');
   };
 
   if (loading) return (
-    <div className="flex items-center justify-center min-h-dvh">
-      <div className="w-8 h-8 border-4 border-[#1B3F7B] border-t-transparent rounded-full animate-spin" />
+    <div style={{ ...F, minHeight:'100dvh', display:'flex', alignItems:'center', justifyContent:'center' }}>
+      <div style={{ width:32, height:32, border:'4px solid #E5E7EB', borderTop:'4px solid #1B63C6', borderRadius:'50%', animation:'spin 0.7s linear infinite' }} />
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
   );
 
   if (!alumni) return (
-    <div className="flex flex-col items-center justify-center min-h-dvh px-6 text-center">
-      <p className="text-lg font-bold mb-2">프로필을 찾을 수 없습니다</p>
-      <button onClick={() => router.back()} className="text-[#1B3F7B] text-sm">돌아가기</button>
+    <div style={{ ...F, minHeight:'100dvh', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center' }}>
+      <p style={{ fontSize:16, fontWeight:600, marginBottom:12 }}>프로필을 찾을 수 없습니다</p>
+      <button onClick={() => router.back()} style={{ color:'#1B63C6', background:'none', border:'none', fontSize:14, cursor:'pointer' }}>돌아가기</button>
     </div>
   );
 
-  const colors = getGradientColor(alumni.name);
+  const bar = <div style={{ width:4, height:16, background:'#1B63C6', borderRadius:2 }} />;
+
+  const fieldRows = [
+    { label:'회사명', key:'company', placeholder:'한국농어촌공사' },
+    { label:'직무/직책', key:'job_title', placeholder:'사원' },
+    { label:'지역', key:'region', placeholder:'충남' },
+    { label:'주소 (지도 표시용)', key:'address', placeholder:'대전광역시 서구 대덕대로 290번길 27' },
+    { label:'휴대폰', key:'phone', placeholder:'01047581293' },
+  ];
 
   return (
-    <div className="flex flex-col min-h-dvh bg-[#F5F7FA]">
+    <div style={{ ...F, minHeight:'100dvh', display:'flex', flexDirection:'column', background:'#F5F7FA' }}>
+
       {/* 헤더 */}
-      <div className="px-4 pt-4 pb-0 flex items-center gap-3 bg-[#F5F7FA] sticky top-0 z-40">
-        <button onClick={() => router.back()} className="w-9 h-9 rounded-full bg-white border border-[#E5EAF2] flex items-center justify-center shadow-sm">
-          <span className="text-[#1B3F7B] text-lg">←</span>
-        </button>
-        <p className="font-semibold text-[#111827] flex-1">프로필</p>
-        <button
-          onClick={() => router.push(`/directory/${id}/edit`)}
-          className="text-sm text-[#1B3F7B] bg-[#EBF0F8] px-3 py-1.5 rounded-full font-medium"
-        >
-          수정
-        </button>
-      </div>
+      <div style={{ background:'#1B63C6', padding:'16px 16px 0' }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20 }}>
+          <button onClick={() => router.back()} style={{ background:'rgba(255,255,255,0.2)', border:'none', borderRadius:10, width:36, height:36, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'#fff', fontSize:18 }}>{'<'}</button>
+          <span style={{ color:'#fff', fontSize:16, fontWeight:700 }}>앨범</span>
+          <button onClick={() => editMode ? handleSave() : setEditMode(true)} disabled={saving} style={{ background: editMode ? '#fff' : 'rgba(255,255,255,0.2)', border:'none', borderRadius:10, padding:'6px 14px', color: editMode ? '#1B63C6' : '#fff', fontSize:13, fontWeight:700, cursor:'pointer' }}>
+            {saving ? '저장중...' : editMode ? '저장' : '수정'}
+          </button>
+        </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
-
-        {/* 명함 스타일 프로필 카드 */}
-        <div className="rounded-3xl overflow-hidden shadow-lg" style={{ background: `linear-gradient(135deg, ${colors[0]}, ${colors[1]})` }}>
-          <div className="px-6 pt-8 pb-6">
-            <div className="flex items-start gap-4 mb-6">
-              {/* 사진 */}
-              <div className="w-20 h-20 rounded-2xl bg-white/20 border-2 border-white/30 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                {alumni.photo_url ? (
-                  <img src={alumni.photo_url} alt={alumni.name} className="w-full h-full object-cover" />
-                ) : (
-                  <span className="text-white text-3xl font-bold">{alumni.name.charAt(0)}</span>
-                )}
-              </div>
-              <div className="flex-1 min-w-0 pt-1">
-                <h2 className="text-white text-2xl font-bold mb-1">{alumni.name}</h2>
-                {alumni.job_title && (
-                  <p className="text-white/80 text-sm font-medium">{alumni.job_title}</p>
-                )}
-                {alumni.company && (
-                  <p className="text-white/60 text-sm">{alumni.company}</p>
-                )}
-              </div>
-            </div>
-
-            {/* 학과 + 졸업년도 */}
-            <div className="flex flex-wrap gap-2">
-              {alumni.department && (
-                <span className="bg-white/20 text-white text-xs px-3 py-1.5 rounded-full font-medium border border-white/20">
-                  {alumni.department}
-                </span>
-              )}
-              {alumni.graduation_year && (
-                <span className="bg-white/20 text-white text-xs px-3 py-1.5 rounded-full font-medium border border-white/20">
-                  {alumni.graduation_year}년 졸업
-                </span>
-              )}
-              {alumni.region && (
-                <span className="bg-white/20 text-white text-xs px-3 py-1.5 rounded-full font-medium border border-white/20">
-                  📍 {alumni.region}
-                </span>
+        <div style={{ display:'flex', flexDirection:'column', alignItems:'center', paddingBottom:28 }}>
+          <div style={{ position:'relative', marginBottom:14 }}>
+            <div style={{ width:100, height:100, borderRadius:16, background:avatarColor(alumni.name), border:'3px solid rgba(255,255,255,0.3)', overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center' }}>
+              {(editMode ? form.photo_url : alumni.photo_url) ? (
+                <img src={editMode ? form.photo_url : alumni.photo_url!} alt={alumni.name} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+              ) : (
+                <span style={{ color:'#fff', fontSize:40, fontWeight:800 }}>{alumni.name.charAt(0)}</span>
               )}
             </div>
-          </div>
-
-          {/* 빠른 연락 버튼 */}
-          <div className="bg-black/10 px-6 py-4 flex gap-3">
-            {alumni.phone && (
-              <a href={`tel:${alumni.phone}`} className="flex-1 bg-white/20 text-white text-sm font-medium py-2.5 rounded-xl text-center border border-white/20 hover:bg-white/30 transition-colors">
-                📞 전화
-              </a>
-            )}
-            {alumni.email && (
-              <a href={`mailto:${alumni.email}`} className="flex-1 bg-white/20 text-white text-sm font-medium py-2.5 rounded-xl text-center border border-white/20 hover:bg-white/30 transition-colors">
-                ✉️ 이메일
-              </a>
-            )}
-            {alumni.phone && (
-              <a href={`sms:${alumni.phone}`} className="flex-1 bg-white/20 text-white text-sm font-medium py-2.5 rounded-xl text-center border border-white/20 hover:bg-white/30 transition-colors">
-                💬 문자
-              </a>
+            {editMode && (
+              <button onClick={() => photoRef.current?.click()} disabled={uploadingPhoto} style={{ position:'absolute', bottom:-6, right:-6, width:28, height:28, borderRadius:'50%', background:'#fff', border:'2px solid #1B63C6', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', fontSize:12, fontWeight:700, color:'#1B63C6' }}>
+                {uploadingPhoto ? '...' : '+'}
+              </button>
             )}
           </div>
+          <input ref={photoRef} type="file" accept="image/*" style={{ display:'none' }} onChange={handlePhotoUpload} />
+          <h2 style={{ color:'#fff', fontSize:22, fontWeight:800, marginBottom:4, letterSpacing:2 }}>{alumni.name.split('').join(' ')}</h2>
+          {alumni.job_title && <p style={{ color:'rgba(255,255,255,0.8)', fontSize:13 }}>{alumni.job_title}</p>}
         </div>
-
-        {/* 연락처 정보 */}
-        <div className="bg-white rounded-2xl px-4 shadow-sm border border-[#E5EAF2]">
-          <p className="text-xs font-semibold text-[#9CA3AF] pt-4 pb-2 uppercase tracking-wider">연락처</p>
-          <InfoRow icon="📱" label="휴대폰" value={alumni.phone} onCopy={() => copy(alumni.phone!, '휴대폰')} />
-          <InfoRow icon="✉️" label="이메일" value={alumni.email} onCopy={() => copy(alumni.email!, '이메일')} />
-        </div>
-
-        {/* 직장 정보 */}
-        {(alumni.company || alumni.job_title) && (
-          <div className="bg-white rounded-2xl px-4 shadow-sm border border-[#E5EAF2]">
-            <p className="text-xs font-semibold text-[#9CA3AF] pt-4 pb-2 uppercase tracking-wider">직장</p>
-            <InfoRow icon="🏢" label="회사" value={alumni.company} />
-            <InfoRow icon="💼" label="직무" value={alumni.job_title} />
-            <InfoRow icon="📍" label="지역" value={alumni.region} />
-          </div>
-        )}
-
-        {/* 학력 */}
-        <div className="bg-white rounded-2xl px-4 shadow-sm border border-[#E5EAF2]">
-          <p className="text-xs font-semibold text-[#9CA3AF] pt-4 pb-2 uppercase tracking-wider">학력</p>
-          <InfoRow icon="🎓" label="학과" value={alumni.department} />
-          <InfoRow icon="📅" label="입학년도" value={alumni.admission_year ? `${alumni.admission_year}년` : undefined} />
-          <InfoRow icon="🏆" label="졸업년도" value={alumni.graduation_year ? `${alumni.graduation_year}년` : undefined} />
-        </div>
-
-        {/* 자기소개 */}
-        {alumni.bio && (
-          <div className="bg-white rounded-2xl px-4 shadow-sm border border-[#E5EAF2]">
-            <p className="text-xs font-semibold text-[#9CA3AF] pt-4 pb-2 uppercase tracking-wider">소개</p>
-            <p className="text-sm text-[#4B5563] leading-relaxed pb-4">{alumni.bio}</p>
-          </div>
-        )}
-
-        {/* 명함 이미지 */}
-        {alumni.card_image_url && (
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#E5EAF2]">
-            <p className="text-xs font-semibold text-[#9CA3AF] mb-3 uppercase tracking-wider">명함</p>
-            <img
-              src={alumni.card_image_url}
-              alt="명함"
-              className="w-full rounded-xl border border-[#E5EAF2] cursor-pointer"
-              onClick={() => setShowCard(true)}
-            />
-          </div>
-        )}
-
       </div>
 
-      {/* 명함 크게 보기 */}
+      {/* 기수 배지 */}
+      {alumni.admission_year && (
+        <div style={{ display:'flex', justifyContent:'center', marginTop:-14, marginBottom:16, position:'relative', zIndex:10 }}>
+          <div style={{ background:'#1B63C6', color:'#fff', fontSize:13, fontWeight:700, padding:'6px 20px', borderRadius:20, boxShadow:'0 2px 8px rgba(27,99,198,0.4)' }}>{'입학 ' + alumni.admission_year + '년'}</div>
+        </div>
+      )}
+
+      <div style={{ flex:1, overflowY:'auto', padding:'0 16px 30px' }}>
+
+        {editMode && (
+          <div style={{ background:'#EFF6FF', border:'1px solid #BFDBFE', borderRadius:12, padding:'10px 14px', marginBottom:12, fontSize:13, color:'#1B63C6' }}>
+            수정 모드 - 정보를 수정하고 저장 버튼을 눌러주세요
+          </div>
+        )}
+
+        {/* 소속 카드 */}
+        <div style={{ background:'#fff', borderRadius:16, padding:'16px', marginBottom:10, boxShadow:'0 1px 4px rgba(0,0,0,0.06)' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12 }}>{bar}<span style={{ fontSize:12, fontWeight:700, color:'#1B63C6', letterSpacing:1 }}>소속</span></div>
+          {editMode ? (
+            <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+              {fieldRows.map(f => (
+                <div key={f.key}>
+                  <p style={{ fontSize:11, color:'#9CA3AF', marginBottom:3 }}>{f.label}</p>
+                  <input value={(form as any)[f.key]} onChange={e => setForm(prev => ({ ...prev, [f.key]: e.target.value }))} placeholder={f.placeholder} style={{ width:'100%', padding:'8px 12px', border:'1.5px solid #E5E7EB', borderRadius:8, fontSize:14, outline:'none', boxSizing:'border-box' }} />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <>
+              {alumni.company && <div style={{ marginBottom:8 }}><p style={{ fontSize:11, color:'#9CA3AF', marginBottom:2 }}>회사</p><p style={{ fontSize:15, fontWeight:700, color:'#111827' }}>{alumni.company}</p></div>}
+              {alumni.job_title && <div style={{ marginBottom:8 }}><p style={{ fontSize:11, color:'#9CA3AF', marginBottom:2 }}>직무/직책</p><p style={{ fontSize:14, color:'#374151' }}>{alumni.job_title}</p></div>}
+              {alumni.phone && (
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
+                  <div><p style={{ fontSize:11, color:'#9CA3AF', marginBottom:2 }}>휴대폰</p><p style={{ fontSize:14, fontWeight:600, color:'#111827' }}>{alumni.phone}</p></div>
+                  <button onClick={() => copy(alumni.phone!, '휴대폰')} style={{ background:'#EFF6FF', border:'none', borderRadius:8, padding:'6px 12px', fontSize:12, color:'#1B63C6', fontWeight:600, cursor:'pointer' }}>복사</button>
+                </div>
+              )}
+              {alumni.region && <div style={{ marginBottom:alumni.address ? 8 : 0 }}><p style={{ fontSize:11, color:'#9CA3AF', marginBottom:2 }}>지역</p><p style={{ fontSize:14, color:'#374151' }}>{'📍 ' + alumni.region}</p></div>}
+              {alumni.address && <div><p style={{ fontSize:11, color:'#9CA3AF', marginBottom:2 }}>주소</p><p style={{ fontSize:13, color:'#374151' }}>{alumni.address}</p></div>}
+            </>
+          )}
+        </div>
+
+        {/* 연락 버튼 */}
+        {!editMode && (alumni.phone || alumni.email) && (
+          <div style={{ display:'flex', gap:8, marginBottom:10 }}>
+            {alumni.phone && <a href={'tel:' + alumni.phone} style={{ flex:1, background:'#1B63C6', color:'#fff', borderRadius:12, padding:'12px', textAlign:'center', fontSize:13, fontWeight:700, textDecoration:'none', display:'flex', alignItems:'center', justifyContent:'center' }}>전화</a>}
+            {alumni.phone && <a href={'sms:' + alumni.phone} style={{ flex:1, background:'#F3F4F6', color:'#374151', borderRadius:12, padding:'12px', textAlign:'center', fontSize:13, fontWeight:700, textDecoration:'none', display:'flex', alignItems:'center', justifyContent:'center' }}>문자</a>}
+            {alumni.email && <a href={'mailto:' + alumni.email} style={{ flex:1, background:'#F3F4F6', color:'#374151', borderRadius:12, padding:'12px', textAlign:'center', fontSize:13, fontWeight:700, textDecoration:'none', display:'flex', alignItems:'center', justifyContent:'center' }}>메일</a>}
+          </div>
+        )}
+
+        {/* 학력 카드 */}
+        <div style={{ background:'#fff', borderRadius:16, padding:'16px', marginBottom:10, boxShadow:'0 1px 4px rgba(0,0,0,0.06)' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12 }}>{bar}<span style={{ fontSize:12, fontWeight:700, color:'#1B63C6', letterSpacing:1 }}>학력</span></div>
+          {[
+            { label:'학과', value: alumni.department },
+            { label:'입학년도', value: alumni.admission_year ? alumni.admission_year + '년' : undefined },
+            { label:'졸업년도', value: alumni.graduation_year ? alumni.graduation_year + '년' : undefined },
+          ].filter(r => r.value).map((r, i, arr) => (
+            <div key={r.label} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 0', borderBottom: i < arr.length-1 ? '1px solid #F3F4F6' : 'none' }}>
+              <span style={{ fontSize:13, color:'#6B7280' }}>{r.label}</span>
+              <span style={{ fontSize:13, fontWeight:600, color:'#111827' }}>{r.value}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* 소개 카드 */}
+        <div style={{ background:'#fff', borderRadius:16, padding:'16px', marginBottom:10, boxShadow:'0 1px 4px rgba(0,0,0,0.06)' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12 }}>{bar}<span style={{ fontSize:12, fontWeight:700, color:'#1B63C6', letterSpacing:1 }}>소개</span></div>
+          {editMode ? (
+            <textarea value={form.bio} onChange={e => setForm(f => ({ ...f, bio: e.target.value }))} placeholder="간단한 소개를 입력해 주세요" rows={3} style={{ width:'100%', padding:'8px 12px', border:'1.5px solid #E5E7EB', borderRadius:8, fontSize:14, outline:'none', resize:'none', boxSizing:'border-box' }} />
+          ) : (
+            <p style={{ fontSize:13, color: alumni.bio ? '#4B5563' : '#D1D5DB', lineHeight:1.7 }}>{alumni.bio || '수정 버튼을 눌러 소개를 추가해주세요'}</p>
+          )}
+        </div>
+
+        {/* 명함 카드 */}
+        <div style={{ background:'#fff', borderRadius:16, padding:'16px', marginBottom:10, boxShadow:'0 1px 4px rgba(0,0,0,0.06)' }}>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:8 }}>{bar}<span style={{ fontSize:12, fontWeight:700, color:'#1B63C6', letterSpacing:1 }}>명함</span></div>
+            {editMode && <button onClick={() => cardRef.current?.click()} disabled={uploadingCard} style={{ background:'#EFF6FF', border:'none', borderRadius:8, padding:'6px 12px', fontSize:12, color:'#1B63C6', fontWeight:600, cursor:'pointer' }}>{uploadingCard ? '업로드중...' : '명함 등록'}</button>}
+          </div>
+          <input ref={cardRef} type="file" accept="image/*" style={{ display:'none' }} onChange={handleCardUpload} />
+          {(editMode ? form.card_image_url : alumni.card_image_url) ? (
+            <img src={editMode ? form.card_image_url : alumni.card_image_url!} alt="명함" onClick={() => !editMode && setShowCard(true)} style={{ width:'100%', borderRadius:10, border:'1px solid #E5E7EB', cursor: editMode ? 'default' : 'pointer' }} />
+          ) : (
+            <div onClick={() => editMode && cardRef.current?.click()} style={{ background:'#F9FAFB', border:'2px dashed #E5E7EB', borderRadius:12, padding:'30px', textAlign:'center', cursor: editMode ? 'pointer' : 'default' }}>
+              <p style={{ fontSize:13, color:'#9CA3AF' }}>{editMode ? '클릭해서 명함을 등록하세요' : '등록된 명함이 없습니다'}</p>
+            </div>
+          )}
+        </div>
+
+        {/* 카카오맵 카드 - 주소가 있을 때만 표시 */}
+        {!editMode && alumni.address && (
+          <div style={{ background:'#fff', borderRadius:16, padding:'16px', marginBottom:10, boxShadow:'0 1px 4px rgba(0,0,0,0.06)' }}>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
+              <div style={{ display:'flex', alignItems:'center', gap:8 }}>{bar}<span style={{ fontSize:12, fontWeight:700, color:'#1B63C6', letterSpacing:1 }}>위치</span></div>
+              <a href={'https://map.kakao.com/link/search/' + encodeURIComponent(alumni.address)} target="_blank" rel="noreferrer" style={{ background:'#FEE500', border:'none', borderRadius:8, padding:'6px 12px', fontSize:12, color:'#191919', fontWeight:700, textDecoration:'none' }}>카카오맵 열기</a>
+            </div>
+            <p style={{ fontSize:12, color:'#6B7280', marginBottom:10 }}>{'📍 ' + alumni.address}</p>
+            <div style={{ borderRadius:12, overflow:'hidden', border:'1px solid #E5E7EB' }}>
+              <iframe src={'https://map.kakao.com/?q=' + encodeURIComponent(alumni.address)} width="100%" height="200" style={{ border:'none', display:'block' }} title="카카오맵" />
+            </div>
+          </div>
+        )}
+
+        {editMode && (
+          <button onClick={() => { setEditMode(false); setForm({ company: alumni.company||'', job_title: alumni.job_title||'', region: alumni.region||'', address: alumni.address||'', bio: alumni.bio||'', phone: alumni.phone||'', photo_url: alumni.photo_url||'', card_image_url: alumni.card_image_url||'' }); }} style={{ width:'100%', padding:'14px', background:'#F3F4F6', border:'none', borderRadius:12, fontSize:14, fontWeight:600, color:'#6B7280', cursor:'pointer', marginBottom:10 }}>
+            취소
+          </button>
+        )}
+      </div>
+
       {showCard && alumni.card_image_url && (
-        <div
-          className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-6"
-          onClick={() => setShowCard(false)}
-        >
-          <img src={alumni.card_image_url} alt="명함" className="w-full max-w-sm rounded-2xl" />
+        <div onClick={() => setShowCard(false)} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.85)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:50, padding:24 }}>
+          <img src={alumni.card_image_url} alt="명함" style={{ width:'100%', maxWidth:380, borderRadius:16 }} />
         </div>
       )}
 
-      {/* 토스트 */}
       {toast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-[#111827] text-white px-5 py-3 rounded-full text-sm font-medium shadow-lg z-50 whitespace-nowrap">
-          ✓ {toast}
+        <div style={{ position:'fixed', bottom:30, left:'50%', transform:'translateX(-50%)', background:'#111827', color:'#fff', padding:'10px 20px', borderRadius:50, fontSize:13, fontWeight:500, zIndex:50, whiteSpace:'nowrap' }}>
+          {'✓ ' + toast}
         </div>
       )}
+
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
   );
 }

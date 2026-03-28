@@ -17,7 +17,7 @@ function LoginForm() {
   useEffect(() => {
     const errorParam = searchParams.get('error');
     if (errorParam === 'pending') {
-      setError('관리자 승인 대기 중입니다. 승인 후 로그인하실 수 있습니다.');
+      setError('현재 접속이 제한되어 있습니다. 관리자에게 문의해 주세요.');
     }
   }, [searchParams]);
 
@@ -41,19 +41,6 @@ function LoginForm() {
       setError('아이디 또는 비밀번호가 올바르지 않습니다.');
       return;
     }
-
-    const { data: alumni } = await supabase
-      .from('alumni_master')
-      .select('auth_status')
-      .eq('email', form.email)
-      .single();
-
-    if (alumni?.auth_status === 'pending') {
-      await supabase.auth.signOut();
-      setError('관리자 승인 대기 중입니다. 승인 후 로그인하실 수 있습니다.');
-      return;
-    }
-
     if (autoLogin) localStorage.setItem('autoLogin', 'true');
     router.push('/directory');
   };
@@ -72,11 +59,7 @@ function LoginForm() {
         </div>
       </div>
 
-      {error && (
-        <Alert variant={error.includes('승인') ? 'warn' : 'error'} className="mb-4">
-          {error}
-        </Alert>
-      )}
+      {error && <Alert variant="warn" className="mb-4">{error}</Alert>}
 
       <InputField
         label="아이디 (이메일 형식)"
