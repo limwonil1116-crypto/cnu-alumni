@@ -13,7 +13,9 @@ export default function StartPage() {
   const [pin, setPin] = useState('');
   const [pinError, setPinError] = useState('');
   const [showInstallGuide, setShowInstallGuide] = useState(false);
+  const [showBrowserGuide, setShowBrowserGuide] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
+  const [isKakao, setIsKakao] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
 
   /* ── 황금 비 캔버스 ── */
@@ -59,7 +61,18 @@ export default function StartPage() {
       if (session) router.replace('/home');
     };
     checkSession();
-    setIsIOS(/iPad|iPhone|iPod/.test(navigator.userAgent));
+
+    const ua = navigator.userAgent.toLowerCase();
+    const ios = /ipad|iphone|ipod/.test(ua);
+    const kakao = ua.includes('kakaotalk');
+    setIsIOS(ios);
+    setIsKakao(kakao);
+
+    // 카카오 인앱브라우저면 자동으로 안내 팝업 표시
+    if (kakao) {
+      setTimeout(() => setShowBrowserGuide(true), 500);
+    }
+
     const handler = (e: Event) => { e.preventDefault(); setDeferredPrompt(e); };
     window.addEventListener('beforeinstallprompt', handler);
     return () => window.removeEventListener('beforeinstallprompt', handler);
@@ -70,7 +83,9 @@ export default function StartPage() {
       deferredPrompt.prompt();
       const result = await deferredPrompt.userChoice;
       if (result.outcome === 'accepted') setDeferredPrompt(null);
-    } else { setShowInstallGuide(true); }
+    } else {
+      setShowInstallGuide(true);
+    }
   };
 
   const handleKakaoLogin = async () => {
@@ -79,6 +94,18 @@ export default function StartPage() {
       provider: 'kakao',
       options: { redirectTo: `${window.location.origin}/auth/callback`, scopes: 'profile_nickname profile_image account_email' },
     });
+  };
+
+  // 외부 브라우저로 열기
+  const openInBrowser = () => {
+    const url = 'https://cnu-alumni.vercel.app';
+    if (isIOS) {
+      // 아이폰: 사파리로 열기
+      window.location.href = url;
+    } else {
+      // 안드로이드: 크롬으로 열기
+      window.location.href = `intent://cnu-alumni.vercel.app#Intent;scheme=https;package=com.android.chrome;end`;
+    }
   };
 
   const F = { fontFamily: "'Apple SD Gothic Neo','Noto Sans KR',sans-serif" };
@@ -149,8 +176,9 @@ export default function StartPage() {
 
       {/* 홈에 추가 버튼 */}
       <div style={{ position: 'fixed', top: 16, right: 16, zIndex: 50 }}>
-        <button onClick={handleInstall} style={{ background: 'rgba(255,255,255,0.18)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.35)', borderRadius: 22, padding: '7px 16px', fontSize: 12, color: '#fff', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'inherit' }}>
-          <span>📲</span> 홈에 추가
+        <button onClick={() => isKakao ? setShowBrowserGuide(true) : handleInstall()}
+          style={{ background: isKakao ? '#FEE500' : 'rgba(255,255,255,0.18)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.35)', borderRadius: 22, padding: '7px 16px', fontSize: 12, color: isKakao ? '#191919' : '#fff', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'inherit' }}>
+          {isKakao ? '🌐 브라우저로 열기' : '📲 홈에 추가'}
         </button>
       </div>
 
@@ -197,7 +225,7 @@ export default function StartPage() {
 
         <p style={{ fontSize: 11, letterSpacing: 4, color: 'rgba(201,168,76,0.95)', fontWeight: 600, marginBottom: 8, textTransform: 'uppercase' as const }}>Chungnam National University</p>
         <h1 style={{ fontSize: 36, fontWeight: 900, color: '#fff', textAlign: 'center', marginBottom: 6, textShadow: '0 2px 20px rgba(0,0,0,0.6)', letterSpacing: -0.5 }}>백마회</h1>
-        <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.65)', letterSpacing: 1, marginBottom: 32 }}>충남대학교 동문회 in 한국농어촌공사</p>
+        <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.65)', letterSpacing: 1, marginBottom: 32 }}>한국농어촌공사 충청지역 동문 네트워크</p>
 
         <div style={{ width: 60, height: 1, marginBottom: 32, background: 'linear-gradient(90deg,transparent,rgba(201,168,76,0.9),transparent)' }} />
 
@@ -217,20 +245,74 @@ export default function StartPage() {
         </div>
 
         <p style={{ marginTop: 32, fontSize: 11, color: 'rgba(255,255,255,0.25)', textAlign: 'center', letterSpacing: 0.3 }}>
-        Copyright 2026. 임원일. All rights reserved
+          © 2025 백마회 · 한국농어촌공사 충청지역본부 · Chungnam National University Alumni
         </p>
       </div>
 
-      {/* 설치 안내 팝업 */}
+      {/* ── 카카오 인앱브라우저 안내 팝업 ── */}
+      {showBrowserGuide && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 100, display: 'flex', alignItems: 'flex-end' }} onClick={() => setShowBrowserGuide(false)}>
+          <div style={{ background: '#fff', borderRadius: '20px 20px 0 0', padding: '24px 20px 44px', width: '100%' }} onClick={e => e.stopPropagation()}>
+            <div style={{ textAlign: 'center', marginBottom: 16 }}>
+              <p style={{ fontSize: 24, marginBottom: 6 }}>📱</p>
+              <p style={{ fontSize: 16, fontWeight: 800, color: '#0f172a', marginBottom: 4 }}>앱으로 설치하기</p>
+              <p style={{ fontSize: 12, color: '#94a3b8' }}>더 편하게 사용하려면 앱을 설치하세요</p>
+            </div>
+
+            {/* 갤럭시 안내 */}
+            {!isIOS && (
+              <>
+                <div style={{ background: '#f8fafc', borderRadius: 14, padding: '16px', marginBottom: 12 }}>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: '#0f172a', marginBottom: 10 }}>🤖 갤럭시 (안드로이드)</p>
+                  <div style={{ fontSize: 13, color: '#475569', lineHeight: 2 }}>
+                    <p>1. 아래 <strong style={{ color: '#1B3F7B' }}>"크롬으로 열기"</strong> 버튼 탭</p>
+                    <p>2. 크롬 주소창 오른쪽 <strong>⋮ 메뉴</strong> 탭</p>
+                    <p>3. <strong>"홈 화면에 추가"</strong> 선택 → <strong>"추가"</strong></p>
+                  </div>
+                </div>
+                <button onClick={openInBrowser}
+                  style={{ width: '100%', background: 'linear-gradient(135deg, #0d2d6e, #1B3F7B)', border: 'none', borderRadius: 14, padding: '14px', fontSize: 15, fontWeight: 700, color: '#fff', cursor: 'pointer', fontFamily: 'inherit', marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                  🌐 크롬으로 열기
+                </button>
+              </>
+            )}
+
+            {/* 아이폰 안내 */}
+            {isIOS && (
+              <>
+                <div style={{ background: '#f8fafc', borderRadius: 14, padding: '16px', marginBottom: 12 }}>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: '#0f172a', marginBottom: 10 }}>🍎 아이폰</p>
+                  <div style={{ fontSize: 13, color: '#475569', lineHeight: 2 }}>
+                    <p>1. 아래 <strong style={{ color: '#1B3F7B' }}>"사파리로 열기"</strong> 버튼 탭</p>
+                    <p>2. 하단 <strong>공유 버튼(□↑)</strong> 탭</p>
+                    <p>3. <strong>"홈 화면에 추가"</strong> → <strong>"추가"</strong></p>
+                  </div>
+                </div>
+                <button onClick={openInBrowser}
+                  style={{ width: '100%', background: 'linear-gradient(135deg, #0d2d6e, #1B3F7B)', border: 'none', borderRadius: 14, padding: '14px', fontSize: 15, fontWeight: 700, color: '#fff', cursor: 'pointer', fontFamily: 'inherit', marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                  🌐 사파리로 열기
+                </button>
+              </>
+            )}
+
+            <button onClick={() => setShowBrowserGuide(false)}
+              style={{ width: '100%', background: '#f1f5f9', border: 'none', borderRadius: 14, padding: '13px', fontSize: 14, fontWeight: 600, color: '#64748b', cursor: 'pointer', fontFamily: 'inherit' }}>
+              나중에 하기
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 홈에 추가 안내 팝업 (크롬/사파리용) */}
       {showInstallGuide && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 100, display: 'flex', alignItems: 'flex-end' }} onClick={() => setShowInstallGuide(false)}>
           <div style={{ background: '#fff', borderRadius: '20px 20px 0 0', padding: '24px 20px 44px', width: '100%' }} onClick={e => e.stopPropagation()}>
-            <p style={{ fontSize: 16, fontWeight: 700, color: '#111827', marginBottom: 16, textAlign: 'center' }}>홈 화면에 추가하기</p>
+            <p style={{ fontSize: 16, fontWeight: 700, color: '#111827', marginBottom: 16, textAlign: 'center' }}>📲 홈 화면에 추가하기</p>
             <div style={{ background: '#F5F7FA', borderRadius: 12, padding: 16, marginBottom: 16, fontSize: 13, color: '#374151', lineHeight: 2 }}>
               {isIOS ? (
-                <><p>1. Safari 하단 <strong>공유 버튼(□↑)</strong> 탭</p><p>2. <strong>"홈 화면에 추가"</strong> 선택</p><p>3. 우측 상단 <strong>"추가"</strong> 탭</p><p style={{ fontSize: 11, color: '#9CA3AF', marginTop: 8 }}>Safari 브라우저에서만 가능합니다</p></>
+                <><p>1. 하단 <strong>공유 버튼(□↑)</strong> 탭</p><p>2. <strong>"홈 화면에 추가"</strong> 선택</p><p>3. <strong>"추가"</strong> 탭</p></>
               ) : (
-                <><p>1. Chrome 우측 상단 <strong>메뉴(⋮)</strong> 탭</p><p>2. <strong>"홈 화면에 추가"</strong> 선택</p><p>3. <strong>"추가"</strong> 버튼 탭</p></>
+                <><p>1. 우측 상단 <strong>⋮ 메뉴</strong> 탭</p><p>2. <strong>"홈 화면에 추가"</strong> 선택</p><p>3. <strong>"추가"</strong> 탭</p></>
               )}
             </div>
             <button onClick={() => setShowInstallGuide(false)} style={{ width: '100%', background: '#1B3F7B', border: 'none', borderRadius: 12, padding: 14, fontSize: 15, fontWeight: 700, color: '#fff', cursor: 'pointer' }}>확인</button>
