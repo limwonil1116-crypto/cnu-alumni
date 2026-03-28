@@ -1,4 +1,4 @@
-Set-Content "C:\Users\User\cnu-alumni-app\public\manifest.json" -Value '{
+{
   "name": "백마회 - 충청지역 동문 네트워크",
   "short_name": "백마회",
   "description": "한국농어촌공사 충청지역 충남대 동문 앱",
@@ -23,4 +23,4 @@ Set-Content "C:\Users\User\cnu-alumni-app\public\manifest.json" -Value '{
       "purpose": "any maskable"
     }
   ]
-}' -Encoding UTF8
+}
