@@ -23,12 +23,36 @@ interface AlumniDetail {
 }
 
 const avatarColor = (name: string) => {
-  const colors = [['#1B63C6','#3B82F6'],['#7C3AED','#A78BFA'],['#059669','#34D399'],['#DC2626','#F87171'],['#D97706','#FBBF24'],['#0891B2','#22D3EE']];
+  const colors = [['#0d2d6e','#1a4ba8'],['#1a3a6e','#1e5fa8'],['#0d4d6e','#1a7aa8'],['#1a2d6e','#2a4ba8'],['#0d3d5e','#1a6090'],['#162850','#1e4080']];
   const c = colors[(name.charCodeAt(0)||0) % colors.length];
-  return 'linear-gradient(135deg,' + c[0] + ',' + c[1] + ')';
+  return `linear-gradient(135deg, ${c[0]}, ${c[1]})`;
 };
 
 const F = { fontFamily:"'Apple SD Gothic Neo','Noto Sans KR',sans-serif" };
+
+// 연락처 저장 (vCard)
+function saveContact(alumni: AlumniDetail) {
+  const vcard = [
+    'BEGIN:VCARD',
+    'VERSION:3.0',
+    `FN:${alumni.name}`,
+    `N:${alumni.name};;;`,
+    alumni.phone ? `TEL;TYPE=CELL:${alumni.phone}` : '',
+    alumni.company ? `ORG:${alumni.company}` : '',
+    alumni.job_title ? `TITLE:${alumni.job_title}` : '',
+    alumni.email ? `EMAIL:${alumni.email}` : '',
+    alumni.department ? `NOTE:충청지역 백마회 / ${alumni.department}` : 'NOTE:충청지역 백마회',
+    'END:VCARD',
+  ].filter(Boolean).join('\n');
+
+  const blob = new Blob([vcard], { type: 'text/vcard;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${alumni.name}.vcf`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 export default function ProfileDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -37,10 +61,12 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState('');
   const [showCard, setShowCard] = useState(false);
+  const [showMap, setShowMap] = useState(false); // ← 지도 토글
   const [editMode, setEditMode] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [uploadingCard, setUploadingCard] = useState(false);
+  const [contactSaved, setContactSaved] = useState(false);
   const photoRef = useRef<HTMLInputElement>(null);
   const cardRef = useRef<HTMLInputElement>(null);
 
@@ -153,9 +179,17 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
     showToast('저장되었습니다');
   };
 
+  const handleSaveContact = () => {
+    if (!alumni) return;
+    saveContact(alumni);
+    setContactSaved(true);
+    showToast('연락처를 저장합니다');
+    setTimeout(() => setContactSaved(false), 2500);
+  };
+
   if (loading) return (
-    <div style={{ ...F, minHeight:'100dvh', display:'flex', alignItems:'center', justifyContent:'center' }}>
-      <div style={{ width:32, height:32, border:'4px solid #E5E7EB', borderTop:'4px solid #1B63C6', borderRadius:'50%', animation:'spin 0.7s linear infinite' }} />
+    <div style={{ ...F, minHeight:'100dvh', display:'flex', alignItems:'center', justifyContent:'center', background:'#f0f4f8' }}>
+      <div style={{ width:32, height:32, border:'3px solid #e2e8f0', borderTop:'3px solid #1B3F7B', borderRadius:'50%', animation:'spin 0.7s linear infinite' }} />
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
   );
@@ -163,11 +197,11 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
   if (!alumni) return (
     <div style={{ ...F, minHeight:'100dvh', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center' }}>
       <p style={{ fontSize:16, fontWeight:600, marginBottom:12 }}>프로필을 찾을 수 없습니다</p>
-      <button onClick={() => router.back()} style={{ color:'#1B63C6', background:'none', border:'none', fontSize:14, cursor:'pointer' }}>돌아가기</button>
+      <button onClick={() => router.back()} style={{ color:'#1B3F7B', background:'none', border:'none', fontSize:14, cursor:'pointer' }}>돌아가기</button>
     </div>
   );
 
-  const bar = <div style={{ width:4, height:16, background:'#1B63C6', borderRadius:2 }} />;
+  const bar = <div style={{ width:4, height:16, background:'#1B3F7B', borderRadius:2 }} />;
 
   const fieldRows = [
     { label:'회사명', key:'company', placeholder:'한국농어촌공사' },
@@ -178,166 +212,261 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
   ];
 
   return (
-    <div style={{ ...F, minHeight:'100dvh', display:'flex', flexDirection:'column', background:'#F5F7FA' }}>
+    <div style={{ ...F, minHeight:'100dvh', display:'flex', flexDirection:'column', background:'#f0f4f8' }}>
 
-      {/* 헤더 */}
-      <div style={{ background:'#1B63C6', padding:'16px 16px 0' }}>
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20 }}>
-          <button onClick={() => router.back()} style={{ background:'rgba(255,255,255,0.2)', border:'none', borderRadius:10, width:36, height:36, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'#fff', fontSize:18 }}>{'<'}</button>
-          <span style={{ color:'#fff', fontSize:16, fontWeight:700 }}>앨범</span>
-          <button onClick={() => editMode ? handleSave() : setEditMode(true)} disabled={saving} style={{ background: editMode ? '#fff' : 'rgba(255,255,255,0.2)', border:'none', borderRadius:10, padding:'6px 14px', color: editMode ? '#1B63C6' : '#fff', fontSize:13, fontWeight:700, cursor:'pointer' }}>
+      {/* ── 헤더 ── */}
+      <div style={{ background:'linear-gradient(135deg, #0d2d6e 0%, #1B3F7B 60%, #1a5276 100%)', boxShadow:'0 2px 12px rgba(13,45,110,0.3)' }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 16px' }}>
+          <button onClick={() => router.back()} style={{ background:'rgba(255,255,255,0.15)', border:'1px solid rgba(255,255,255,0.2)', borderRadius:10, width:36, height:36, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'#fff', fontSize:16 }}>
+            <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <span style={{ color:'#fff', fontSize:16, fontWeight:700 }}>동문 프로필</span>
+          <button onClick={() => editMode ? handleSave() : setEditMode(true)} disabled={saving}
+            style={{ background: editMode ? '#fff' : 'rgba(255,255,255,0.15)', border:'1px solid rgba(255,255,255,0.2)', borderRadius:10, padding:'7px 16px', color: editMode ? '#1B3F7B' : '#fff', fontSize:13, fontWeight:700, cursor:'pointer' }}>
             {saving ? '저장중...' : editMode ? '저장' : '수정'}
           </button>
         </div>
 
-        <div style={{ display:'flex', flexDirection:'column', alignItems:'center', paddingBottom:28 }}>
+        {/* 프로필 */}
+        <div style={{ display:'flex', flexDirection:'column', alignItems:'center', padding:'8px 16px 28px' }}>
           <div style={{ position:'relative', marginBottom:14 }}>
-            <div style={{ width:100, height:100, borderRadius:16, background:avatarColor(alumni.name), border:'3px solid rgba(255,255,255,0.3)', overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center' }}>
+            <div style={{ width:96, height:96, borderRadius:20, background:avatarColor(alumni.name), border:'3px solid rgba(255,255,255,0.4)', overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 4px 16px rgba(0,0,0,0.3)' }}>
               {(editMode ? form.photo_url : alumni.photo_url) ? (
                 <img src={editMode ? form.photo_url : alumni.photo_url!} alt={alumni.name} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
               ) : (
-                <span style={{ color:'#fff', fontSize:40, fontWeight:800 }}>{alumni.name.charAt(0)}</span>
+                <span style={{ color:'#fff', fontSize:38, fontWeight:800 }}>{alumni.name.charAt(0)}</span>
               )}
             </div>
             {editMode && (
-              <button onClick={() => photoRef.current?.click()} disabled={uploadingPhoto} style={{ position:'absolute', bottom:-6, right:-6, width:28, height:28, borderRadius:'50%', background:'#fff', border:'2px solid #1B63C6', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', fontSize:12, fontWeight:700, color:'#1B63C6' }}>
-                {uploadingPhoto ? '...' : '+'}
+              <button onClick={() => photoRef.current?.click()} disabled={uploadingPhoto}
+                style={{ position:'absolute', bottom:-6, right:-6, width:28, height:28, borderRadius:'50%', background:'#fff', border:'2px solid #1B3F7B', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', fontSize:14, color:'#1B3F7B', fontWeight:700 }}>
+                {uploadingPhoto ? '·' : '+'}
               </button>
             )}
           </div>
           <input ref={photoRef} type="file" accept="image/*" style={{ display:'none' }} onChange={handlePhotoUpload} />
-          <h2 style={{ color:'#fff', fontSize:22, fontWeight:800, marginBottom:4, letterSpacing:2 }}>{alumni.name.split('').join(' ')}</h2>
-          {alumni.job_title && <p style={{ color:'rgba(255,255,255,0.8)', fontSize:13 }}>{alumni.job_title}</p>}
+          <h2 style={{ color:'#fff', fontSize:22, fontWeight:800, marginBottom:4, letterSpacing:1 }}>{alumni.name}</h2>
+          {alumni.job_title && <p style={{ color:'rgba(255,255,255,0.75)', fontSize:13, marginBottom:2 }}>{alumni.job_title}</p>}
+          {alumni.company && <p style={{ color:'rgba(255,255,255,0.55)', fontSize:12 }}>{alumni.company}</p>}
         </div>
+
+        {/* 기수 뱃지 */}
+        {alumni.admission_year && (
+          <div style={{ display:'flex', justifyContent:'center', paddingBottom:14, gap:8 }}>
+            <span style={{ background:'rgba(255,255,255,0.15)', color:'#fff', fontSize:11, padding:'4px 14px', borderRadius:20, border:'1px solid rgba(255,255,255,0.2)' }}>
+              입학 {alumni.admission_year}년
+            </span>
+            {alumni.department && (
+              <span style={{ background:'rgba(255,255,255,0.15)', color:'#fff', fontSize:11, padding:'4px 14px', borderRadius:20, border:'1px solid rgba(255,255,255,0.2)' }}>
+                {alumni.department}
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* 기수 배지 */}
-      {alumni.admission_year && (
-        <div style={{ display:'flex', justifyContent:'center', marginTop:-14, marginBottom:16, position:'relative', zIndex:10 }}>
-          <div style={{ background:'#1B63C6', color:'#fff', fontSize:13, fontWeight:700, padding:'6px 20px', borderRadius:20, boxShadow:'0 2px 8px rgba(27,99,198,0.4)' }}>{'입학 ' + alumni.admission_year + '년'}</div>
-        </div>
-      )}
-
-      <div style={{ flex:1, overflowY:'auto', padding:'0 16px 30px' }}>
+      <div style={{ flex:1, overflowY:'auto', padding:'14px 14px 40px' }}>
 
         {editMode && (
-          <div style={{ background:'#EFF6FF', border:'1px solid #BFDBFE', borderRadius:12, padding:'10px 14px', marginBottom:12, fontSize:13, color:'#1B63C6' }}>
-            수정 모드 - 정보를 수정하고 저장 버튼을 눌러주세요
+          <div style={{ background:'#eff6ff', border:'1px solid #bfdbfe', borderRadius:12, padding:'10px 14px', marginBottom:12, fontSize:13, color:'#1B3F7B' }}>
+            ✏️ 수정 모드 — 정보를 수정하고 저장 버튼을 눌러주세요
           </div>
         )}
 
-        {/* 소속 카드 */}
-        <div style={{ background:'#fff', borderRadius:16, padding:'16px', marginBottom:10, boxShadow:'0 1px 4px rgba(0,0,0,0.06)' }}>
-          <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12 }}>{bar}<span style={{ fontSize:12, fontWeight:700, color:'#1B63C6', letterSpacing:1 }}>소속</span></div>
+        {/* ── 연락처 저장 + 연락 버튼 ── */}
+        {!editMode && (alumni.phone || alumni.email) && (
+          <div style={{ background:'#fff', borderRadius:16, padding:'14px 16px', marginBottom:10, boxShadow:'0 1px 4px rgba(13,45,110,0.07)', border:'1px solid #e2e8f0' }}>
+            {/* 연락처 저장 버튼 */}
+            {alumni.phone && (
+              <button onClick={handleSaveContact}
+                style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'center', gap:8, padding:'12px', background: contactSaved ? 'linear-gradient(135deg,#16a34a,#15803d)' : 'linear-gradient(135deg,#0d2d6e,#1B3F7B)', border:'none', borderRadius:12, color:'#fff', fontSize:14, fontWeight:700, cursor:'pointer', fontFamily:'inherit', marginBottom:10, boxShadow:'0 3px 10px rgba(13,45,110,0.25)', transition:'all 0.2s' }}>
+                {contactSaved ? (
+                  <><svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>연락처 저장 완료!</>
+                ) : (
+                  <><svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>연락처 저장하기</>
+                )}
+              </button>
+            )}
+
+            {/* 전화/문자/메일 버튼 */}
+            <div style={{ display:'flex', gap:8 }}>
+              {alumni.phone && (
+                <a href={'tel:' + alumni.phone}
+                  style={{ flex:1, background:'#eff6ff', color:'#1B3F7B', borderRadius:10, padding:'10px', textAlign:'center', fontSize:13, fontWeight:700, textDecoration:'none', display:'flex', flexDirection:'column', alignItems:'center', gap:3 }}>
+                  <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                  전화
+                </a>
+              )}
+              {alumni.phone && (
+                <a href={'sms:' + alumni.phone}
+                  style={{ flex:1, background:'#f8fafc', color:'#475569', borderRadius:10, padding:'10px', textAlign:'center', fontSize:13, fontWeight:700, textDecoration:'none', display:'flex', flexDirection:'column', alignItems:'center', gap:3 }}>
+                  <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                  문자
+                </a>
+              )}
+              {alumni.email && (
+                <a href={'mailto:' + alumni.email}
+                  style={{ flex:1, background:'#f8fafc', color:'#475569', borderRadius:10, padding:'10px', textAlign:'center', fontSize:13, fontWeight:700, textDecoration:'none', display:'flex', flexDirection:'column', alignItems:'center', gap:3 }}>
+                  <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                  메일
+                </a>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── 소속 카드 ── */}
+        <div style={{ background:'#fff', borderRadius:16, padding:'16px', marginBottom:10, boxShadow:'0 1px 4px rgba(13,45,110,0.07)', border:'1px solid #e2e8f0' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12 }}>{bar}<span style={{ fontSize:11, fontWeight:700, color:'#64748b', letterSpacing:1.5, textTransform:'uppercase' }}>소속</span></div>
           {editMode ? (
             <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
               {fieldRows.map(f => (
                 <div key={f.key}>
-                  <p style={{ fontSize:11, color:'#9CA3AF', marginBottom:3 }}>{f.label}</p>
-                  <input value={(form as any)[f.key]} onChange={e => setForm(prev => ({ ...prev, [f.key]: e.target.value }))} placeholder={f.placeholder} style={{ width:'100%', padding:'8px 12px', border:'1.5px solid #E5E7EB', borderRadius:8, fontSize:14, outline:'none', boxSizing:'border-box' }} />
+                  <p style={{ fontSize:11, color:'#94a3b8', marginBottom:3 }}>{f.label}</p>
+                  <input value={(form as any)[f.key]} onChange={e => setForm(prev => ({ ...prev, [f.key]: e.target.value }))} placeholder={f.placeholder}
+                    style={{ width:'100%', padding:'9px 12px', border:'1.5px solid #e2e8f0', borderRadius:10, fontSize:13, outline:'none', boxSizing:'border-box', fontFamily:'inherit' }} />
                 </div>
               ))}
             </div>
           ) : (
             <>
-              {alumni.company && <div style={{ marginBottom:8 }}><p style={{ fontSize:11, color:'#9CA3AF', marginBottom:2 }}>회사</p><p style={{ fontSize:15, fontWeight:700, color:'#111827' }}>{alumni.company}</p></div>}
-              {alumni.job_title && <div style={{ marginBottom:8 }}><p style={{ fontSize:11, color:'#9CA3AF', marginBottom:2 }}>직무/직책</p><p style={{ fontSize:14, color:'#374151' }}>{alumni.job_title}</p></div>}
+              {alumni.company && <InfoRow label="회사" value={alumni.company} />}
+              {alumni.job_title && <InfoRow label="직무/직책" value={alumni.job_title} />}
               {alumni.phone && (
-                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
-                  <div><p style={{ fontSize:11, color:'#9CA3AF', marginBottom:2 }}>휴대폰</p><p style={{ fontSize:14, fontWeight:600, color:'#111827' }}>{alumni.phone}</p></div>
-                  <button onClick={() => copy(alumni.phone!, '휴대폰')} style={{ background:'#EFF6FF', border:'none', borderRadius:8, padding:'6px 12px', fontSize:12, color:'#1B63C6', fontWeight:600, cursor:'pointer' }}>복사</button>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'6px 0', borderBottom:'1px solid #f1f5f9' }}>
+                  <div>
+                    <p style={{ fontSize:10, color:'#94a3b8', marginBottom:2 }}>휴대폰</p>
+                    <p style={{ fontSize:14, fontWeight:600, color:'#0f172a' }}>{alumni.phone}</p>
+                  </div>
+                  <button onClick={() => copy(alumni.phone!, '휴대폰')}
+                    style={{ background:'#eff6ff', border:'none', borderRadius:8, padding:'5px 12px', fontSize:11, color:'#1B3F7B', fontWeight:600, cursor:'pointer' }}>복사</button>
                 </div>
               )}
-              {alumni.region && <div style={{ marginBottom:alumni.address ? 8 : 0 }}><p style={{ fontSize:11, color:'#9CA3AF', marginBottom:2 }}>지역</p><p style={{ fontSize:14, color:'#374151' }}>{'📍 ' + alumni.region}</p></div>}
-              {alumni.address && <div><p style={{ fontSize:11, color:'#9CA3AF', marginBottom:2 }}>주소</p><p style={{ fontSize:13, color:'#374151' }}>{alumni.address}</p></div>}
+              {alumni.region && <InfoRow label="지역" value={'📍 ' + alumni.region} />}
+              {alumni.address && <InfoRow label="주소" value={alumni.address} last />}
             </>
           )}
         </div>
 
-        {/* 연락 버튼 */}
-        {!editMode && (alumni.phone || alumni.email) && (
-          <div style={{ display:'flex', gap:8, marginBottom:10 }}>
-            {alumni.phone && <a href={'tel:' + alumni.phone} style={{ flex:1, background:'#1B63C6', color:'#fff', borderRadius:12, padding:'12px', textAlign:'center', fontSize:13, fontWeight:700, textDecoration:'none', display:'flex', alignItems:'center', justifyContent:'center' }}>전화</a>}
-            {alumni.phone && <a href={'sms:' + alumni.phone} style={{ flex:1, background:'#F3F4F6', color:'#374151', borderRadius:12, padding:'12px', textAlign:'center', fontSize:13, fontWeight:700, textDecoration:'none', display:'flex', alignItems:'center', justifyContent:'center' }}>문자</a>}
-            {alumni.email && <a href={'mailto:' + alumni.email} style={{ flex:1, background:'#F3F4F6', color:'#374151', borderRadius:12, padding:'12px', textAlign:'center', fontSize:13, fontWeight:700, textDecoration:'none', display:'flex', alignItems:'center', justifyContent:'center' }}>메일</a>}
-          </div>
-        )}
-
-        {/* 학력 카드 */}
-        <div style={{ background:'#fff', borderRadius:16, padding:'16px', marginBottom:10, boxShadow:'0 1px 4px rgba(0,0,0,0.06)' }}>
-          <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12 }}>{bar}<span style={{ fontSize:12, fontWeight:700, color:'#1B63C6', letterSpacing:1 }}>학력</span></div>
+        {/* ── 학력 카드 ── */}
+        <div style={{ background:'#fff', borderRadius:16, padding:'16px', marginBottom:10, boxShadow:'0 1px 4px rgba(13,45,110,0.07)', border:'1px solid #e2e8f0' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12 }}>{bar}<span style={{ fontSize:11, fontWeight:700, color:'#64748b', letterSpacing:1.5, textTransform:'uppercase' }}>학력</span></div>
           {[
             { label:'학과', value: alumni.department },
             { label:'입학년도', value: alumni.admission_year ? alumni.admission_year + '년' : undefined },
             { label:'졸업년도', value: alumni.graduation_year ? alumni.graduation_year + '년' : undefined },
           ].filter(r => r.value).map((r, i, arr) => (
-            <div key={r.label} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 0', borderBottom: i < arr.length-1 ? '1px solid #F3F4F6' : 'none' }}>
-              <span style={{ fontSize:13, color:'#6B7280' }}>{r.label}</span>
-              <span style={{ fontSize:13, fontWeight:600, color:'#111827' }}>{r.value}</span>
+            <div key={r.label} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 0', borderBottom: i < arr.length-1 ? '1px solid #f1f5f9' : 'none' }}>
+              <span style={{ fontSize:13, color:'#64748b' }}>{r.label}</span>
+              <span style={{ fontSize:13, fontWeight:600, color:'#0f172a' }}>{r.value}</span>
             </div>
           ))}
         </div>
 
-        {/* 소개 카드 */}
-        <div style={{ background:'#fff', borderRadius:16, padding:'16px', marginBottom:10, boxShadow:'0 1px 4px rgba(0,0,0,0.06)' }}>
-          <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12 }}>{bar}<span style={{ fontSize:12, fontWeight:700, color:'#1B63C6', letterSpacing:1 }}>소개</span></div>
+        {/* ── 소개 카드 ── */}
+        <div style={{ background:'#fff', borderRadius:16, padding:'16px', marginBottom:10, boxShadow:'0 1px 4px rgba(13,45,110,0.07)', border:'1px solid #e2e8f0' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12 }}>{bar}<span style={{ fontSize:11, fontWeight:700, color:'#64748b', letterSpacing:1.5, textTransform:'uppercase' }}>소개</span></div>
           {editMode ? (
-            <textarea value={form.bio} onChange={e => setForm(f => ({ ...f, bio: e.target.value }))} placeholder="간단한 소개를 입력해 주세요" rows={3} style={{ width:'100%', padding:'8px 12px', border:'1.5px solid #E5E7EB', borderRadius:8, fontSize:14, outline:'none', resize:'none', boxSizing:'border-box' }} />
+            <textarea value={form.bio} onChange={e => setForm(f => ({ ...f, bio: e.target.value }))} placeholder="간단한 소개를 입력해 주세요" rows={3}
+              style={{ width:'100%', padding:'9px 12px', border:'1.5px solid #e2e8f0', borderRadius:10, fontSize:13, outline:'none', resize:'none', boxSizing:'border-box', fontFamily:'inherit' }} />
           ) : (
-            <p style={{ fontSize:13, color: alumni.bio ? '#4B5563' : '#D1D5DB', lineHeight:1.7 }}>{alumni.bio || '수정 버튼을 눌러 소개를 추가해주세요'}</p>
+            <p style={{ fontSize:13, color: alumni.bio ? '#475569' : '#cbd5e1', lineHeight:1.8 }}>{alumni.bio || '수정 버튼을 눌러 소개를 추가해주세요'}</p>
           )}
         </div>
 
-        {/* 명함 카드 */}
-        <div style={{ background:'#fff', borderRadius:16, padding:'16px', marginBottom:10, boxShadow:'0 1px 4px rgba(0,0,0,0.06)' }}>
+        {/* ── 명함 카드 ── */}
+        <div style={{ background:'#fff', borderRadius:16, padding:'16px', marginBottom:10, boxShadow:'0 1px 4px rgba(13,45,110,0.07)', border:'1px solid #e2e8f0' }}>
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
-            <div style={{ display:'flex', alignItems:'center', gap:8 }}>{bar}<span style={{ fontSize:12, fontWeight:700, color:'#1B63C6', letterSpacing:1 }}>명함</span></div>
-            {editMode && <button onClick={() => cardRef.current?.click()} disabled={uploadingCard} style={{ background:'#EFF6FF', border:'none', borderRadius:8, padding:'6px 12px', fontSize:12, color:'#1B63C6', fontWeight:600, cursor:'pointer' }}>{uploadingCard ? '업로드중...' : '명함 등록'}</button>}
+            <div style={{ display:'flex', alignItems:'center', gap:8 }}>{bar}<span style={{ fontSize:11, fontWeight:700, color:'#64748b', letterSpacing:1.5, textTransform:'uppercase' }}>명함</span></div>
+            {editMode && (
+              <button onClick={() => cardRef.current?.click()} disabled={uploadingCard}
+                style={{ background:'#eff6ff', border:'none', borderRadius:8, padding:'6px 12px', fontSize:12, color:'#1B3F7B', fontWeight:600, cursor:'pointer' }}>
+                {uploadingCard ? '업로드중...' : '명함 등록'}
+              </button>
+            )}
           </div>
           <input ref={cardRef} type="file" accept="image/*" style={{ display:'none' }} onChange={handleCardUpload} />
           {(editMode ? form.card_image_url : alumni.card_image_url) ? (
-            <img src={editMode ? form.card_image_url : alumni.card_image_url!} alt="명함" onClick={() => !editMode && setShowCard(true)} style={{ width:'100%', borderRadius:10, border:'1px solid #E5E7EB', cursor: editMode ? 'default' : 'pointer' }} />
+            <img src={editMode ? form.card_image_url : alumni.card_image_url!} alt="명함"
+              onClick={() => !editMode && setShowCard(true)}
+              style={{ width:'100%', borderRadius:10, border:'1px solid #e2e8f0', cursor: editMode ? 'default' : 'pointer', display:'block' }} />
           ) : (
-            <div onClick={() => editMode && cardRef.current?.click()} style={{ background:'#F9FAFB', border:'2px dashed #E5E7EB', borderRadius:12, padding:'30px', textAlign:'center', cursor: editMode ? 'pointer' : 'default' }}>
-              <p style={{ fontSize:13, color:'#9CA3AF' }}>{editMode ? '클릭해서 명함을 등록하세요' : '등록된 명함이 없습니다'}</p>
+            <div onClick={() => editMode && cardRef.current?.click()}
+              style={{ background:'#f8fafc', border:'2px dashed #e2e8f0', borderRadius:12, padding:'28px', textAlign:'center', cursor: editMode ? 'pointer' : 'default' }}>
+              <p style={{ fontSize:13, color:'#94a3b8' }}>{editMode ? '클릭해서 명함을 등록하세요' : '등록된 명함이 없습니다'}</p>
             </div>
           )}
         </div>
 
-        {/* 카카오맵 카드 - 주소가 있을 때만 표시 */}
+        {/* ── 위치 카드 (버튼 클릭 시에만 지도 표시) ── */}
         {!editMode && alumni.address && (
-          <div style={{ background:'#fff', borderRadius:16, padding:'16px', marginBottom:10, boxShadow:'0 1px 4px rgba(0,0,0,0.06)' }}>
-            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
-              <div style={{ display:'flex', alignItems:'center', gap:8 }}>{bar}<span style={{ fontSize:12, fontWeight:700, color:'#1B63C6', letterSpacing:1 }}>위치</span></div>
-              <a href={'https://map.kakao.com/link/search/' + encodeURIComponent(alumni.address)} target="_blank" rel="noreferrer" style={{ background:'#FEE500', border:'none', borderRadius:8, padding:'6px 12px', fontSize:12, color:'#191919', fontWeight:700, textDecoration:'none' }}>카카오맵 열기</a>
+          <div style={{ background:'#fff', borderRadius:16, padding:'16px', marginBottom:10, boxShadow:'0 1px 4px rgba(13,45,110,0.07)', border:'1px solid #e2e8f0' }}>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
+              <div style={{ display:'flex', alignItems:'center', gap:8 }}>{bar}<span style={{ fontSize:11, fontWeight:700, color:'#64748b', letterSpacing:1.5, textTransform:'uppercase' }}>위치</span></div>
+              <a href={'https://map.kakao.com/link/search/' + encodeURIComponent(alumni.address)} target="_blank" rel="noreferrer"
+                style={{ background:'#FEE500', border:'none', borderRadius:8, padding:'6px 12px', fontSize:12, color:'#191919', fontWeight:700, textDecoration:'none' }}>
+                카카오맵 열기
+              </a>
             </div>
-            <p style={{ fontSize:12, color:'#6B7280', marginBottom:10 }}>{'📍 ' + alumni.address}</p>
-            <div style={{ borderRadius:12, overflow:'hidden', border:'1px solid #E5E7EB' }}>
-              <iframe src={'https://map.kakao.com/?q=' + encodeURIComponent(alumni.address)} width="100%" height="200" style={{ border:'none', display:'block' }} title="카카오맵" />
-            </div>
+            <p style={{ fontSize:12, color:'#64748b', marginBottom:10 }}>📍 {alumni.address}</p>
+
+            {/* 지도는 버튼 클릭 시에만 표시 */}
+            {!showMap ? (
+              <button onClick={() => setShowMap(true)}
+                style={{ width:'100%', padding:'10px', background:'#f8fafc', border:'1px solid #e2e8f0', borderRadius:10, fontSize:13, color:'#475569', cursor:'pointer', fontFamily:'inherit', fontWeight:500 }}>
+                🗺 지도 보기
+              </button>
+            ) : (
+              <>
+                <div style={{ borderRadius:12, overflow:'hidden', border:'1px solid #e2e8f0', marginBottom:8 }}>
+                  <iframe
+                    src={'https://map.kakao.com/?q=' + encodeURIComponent(alumni.address)}
+                    width="100%" height="200"
+                    style={{ border:'none', display:'block' }}
+                    title="카카오맵"
+                  />
+                </div>
+                <button onClick={() => setShowMap(false)}
+                  style={{ width:'100%', padding:'8px', background:'#f1f5f9', border:'none', borderRadius:10, fontSize:12, color:'#64748b', cursor:'pointer', fontFamily:'inherit' }}>
+                  지도 닫기
+                </button>
+              </>
+            )}
           </div>
         )}
 
         {editMode && (
-          <button onClick={() => { setEditMode(false); setForm({ company: alumni.company||'', job_title: alumni.job_title||'', region: alumni.region||'', address: alumni.address||'', bio: alumni.bio||'', phone: alumni.phone||'', photo_url: alumni.photo_url||'', card_image_url: alumni.card_image_url||'' }); }} style={{ width:'100%', padding:'14px', background:'#F3F4F6', border:'none', borderRadius:12, fontSize:14, fontWeight:600, color:'#6B7280', cursor:'pointer', marginBottom:10 }}>
+          <button onClick={() => { setEditMode(false); setForm({ company: alumni.company||'', job_title: alumni.job_title||'', region: alumni.region||'', address: alumni.address||'', bio: alumni.bio||'', phone: alumni.phone||'', photo_url: alumni.photo_url||'', card_image_url: alumni.card_image_url||'' }); }}
+            style={{ width:'100%', padding:'14px', background:'#f1f5f9', border:'none', borderRadius:12, fontSize:14, fontWeight:600, color:'#64748b', cursor:'pointer', marginBottom:10, fontFamily:'inherit' }}>
             취소
           </button>
         )}
       </div>
 
+      {/* 명함 전체화면 */}
       {showCard && alumni.card_image_url && (
-        <div onClick={() => setShowCard(false)} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.85)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:50, padding:24 }}>
+        <div onClick={() => setShowCard(false)} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.88)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:50, padding:24 }}>
           <img src={alumni.card_image_url} alt="명함" style={{ width:'100%', maxWidth:380, borderRadius:16 }} />
         </div>
       )}
 
+      {/* 토스트 */}
       {toast && (
-        <div style={{ position:'fixed', bottom:30, left:'50%', transform:'translateX(-50%)', background:'#111827', color:'#fff', padding:'10px 20px', borderRadius:50, fontSize:13, fontWeight:500, zIndex:50, whiteSpace:'nowrap' }}>
-          {'✓ ' + toast}
+        <div style={{ position:'fixed', bottom:30, left:'50%', transform:'translateX(-50%)', background:'#0f172a', color:'#fff', padding:'10px 22px', borderRadius:50, fontSize:13, fontWeight:500, zIndex:50, whiteSpace:'nowrap', boxShadow:'0 4px 12px rgba(0,0,0,0.3)' }}>
+          ✓ {toast}
         </div>
       )}
 
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+    </div>
+  );
+}
+
+function InfoRow({ label, value, last }: { label: string; value: string; last?: boolean }) {
+  return (
+    <div style={{ padding:'6px 0', borderBottom: last ? 'none' : '1px solid #f1f5f9' }}>
+      <p style={{ fontSize:10, color:'#94a3b8', marginBottom:2 }}>{label}</p>
+      <p style={{ fontSize:14, fontWeight:600, color:'#0f172a' }}>{value}</p>
     </div>
   );
 }
