@@ -58,33 +58,22 @@ export default function StartPage() {
     const isAndroid = /android/i.test(ua);
     setIsIOS(ios);
 
-    /* ── 카카오 인앱브라우저 감지 → 외부 브라우저 자동 이동 ── */
+    /* ── 카카오 인앱브라우저 → 외부 브라우저 자동 이동 ── */
     if (isKakao) {
       const targetUrl = 'https://cnu-alumni.vercel.app';
 
       if (isAndroid) {
-        // 안드로이드: 크롬 시도 → 없으면 삼성브라우저 → 없으면 기본브라우저
-        window.location.href = [
-          `intent://${targetUrl.replace('https://', '')}`,
-          '#Intent',
-          'scheme=https',
-          'package=com.android.chrome',           // 크롬
-          `S.browser_fallback_url=${encodeURIComponent(
-            // 크롬 없으면 삼성브라우저로
-            `intent://${targetUrl.replace('https://', '')}#Intent;scheme=https;package=com.sec.android.app.sbrowser;S.browser_fallback_url=${encodeURIComponent(targetUrl)};end`
-          )}`,
-          'end',
-        ].join(';');
+        // 크롬 시도 → 없으면 삼성브라우저 → 없으면 기본브라우저
+        const fallbackSamsung = encodeURIComponent(
+          `intent://cnu-alumni.vercel.app#Intent;scheme=https;package=com.sec.android.app.sbrowser;S.browser_fallback_url=${encodeURIComponent(targetUrl)};end`
+        );
+        window.location.href = `intent://cnu-alumni.vercel.app#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=${fallbackSamsung};end`;
       } else if (ios) {
-        // 아이폰: 크롬 시도 → 없으면 사파리(기본)
-        // googlechrome:// 스킴으로 크롬 열기 시도
-        const chromeUrl = targetUrl.replace('https://', 'googlechromes://');
-        // 크롬 앱이 없으면 사파리로 fallback
+        // 크롬 시도 → 없으면 1.5초 후 사파리
         const timer = setTimeout(() => {
-          window.location.href = targetUrl; // 사파리로 열기
+          window.location.href = targetUrl;
         }, 1500);
-        window.location.href = chromeUrl;
-        // 크롬이 열리면 타이머 취소 (페이지가 blur되므로)
+        window.location.href = targetUrl.replace('https://', 'googlechromes://');
         window.addEventListener('blur', () => clearTimeout(timer), { once: true });
       }
       return;
@@ -164,7 +153,9 @@ export default function StartPage() {
               </div>
             ))}
           </div>
-          {pinError && <div style={{ background: '#FEE2E2', color: '#DC2626', padding: '10px 14px', borderRadius: 10, fontSize: 12, marginBottom: 14, lineHeight: 1.6, textAlign: 'center', whiteSpace: 'pre-line' }}>{pinError}</div>}
+          {pinError && (
+            <div style={{ background: '#FEE2E2', color: '#DC2626', padding: '10px 14px', borderRadius: 10, fontSize: 12, marginBottom: 14, lineHeight: 1.6, textAlign: 'center', whiteSpace: 'pre-line' }}>{pinError}</div>
+          )}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, maxWidth: 280, margin: '0 auto 16px', width: '100%' }}>
             {['1','2','3','4','5','6','7','8','9','','0','⌫'].map((k, idx) => (
               <button key={idx} onClick={() => {
