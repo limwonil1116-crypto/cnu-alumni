@@ -98,7 +98,7 @@ export default function MyPage() {
             <div style={{ background: '#fff', borderRadius: 8, padding: '4px 10px', height: 32, display: 'flex', alignItems: 'center' }}>
               <img src="/krc-logo.jpg" alt="KRC" style={{ height: 22, width: 'auto', objectFit: 'contain' }} />
             </div>
-            <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11 }}>한국농어촌공사</span>
+            <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11 }}></span>
           </div>
           <button onClick={handleLogout} style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 16, padding: '5px 12px', fontSize: 12, color: '#fff', cursor: 'pointer', fontFamily: 'inherit' }}>
             로그아웃

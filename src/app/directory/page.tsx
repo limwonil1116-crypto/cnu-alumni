@@ -140,7 +140,7 @@ export default function DirectoryPage() {
             <div style={{ background: '#fff', borderRadius: 8, padding: '4px 10px', height: 32, display: 'flex', alignItems: 'center' }}>
               <img src="/krc-logo.jpg" alt="KRC" style={{ height: 22, width: 'auto', objectFit: 'contain' }} />
             </div>
-            <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11 }}>한국농어촌공사</span>
+            <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11 }}></span>
           </div>
           {/* 공유 + 설치 버튼 */}
           <TopButtons />
@@ -150,8 +150,8 @@ export default function DirectoryPage() {
         <div style={{ padding: '12px 16px 0' }}>
           <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 14 }}>
             <div>
-              <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 10, letterSpacing: 2.5, textTransform: 'uppercase', marginBottom: 3 }}>Alumni Network</p>
-              <h1 style={{ color: '#fff', fontSize: 20, fontWeight: 800, letterSpacing: -0.3, lineHeight: 1 }}>충청지역 백마회</h1>
+              <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 10, letterSpacing: 2.5, textTransform: 'uppercase', marginBottom: 3 }}>The Strong CNU</p>
+              <h1 style={{ color: '#fff', fontSize: 20, fontWeight: 800, letterSpacing: -0.3, lineHeight: 1 }}>충남대학교 백마회</h1>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <div style={{ textAlign: 'right', paddingBottom: 2 }}>
