@@ -13,12 +13,10 @@ export default function StartPage() {
   const [pin, setPin] = useState('');
   const [pinError, setPinError] = useState('');
   const [showInstallGuide, setShowInstallGuide] = useState(false);
-  const [showBrowserGuide, setShowBrowserGuide] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
   const [isKakao, setIsKakao] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
 
-  /* ── 황금 비 캔버스 ── */
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -31,8 +29,7 @@ export default function StartPage() {
     for (let i = 0; i < 80; i++) {
       particles.push({ x: Math.random() * window.innerWidth, y: Math.random() * window.innerHeight, speed: Math.random() * 1.2 + 0.4, size: Math.random() * 3 + 1, opacity: Math.random() * 0.6 + 0.2, swing: Math.random() * 40 + 10, swingSpeed: Math.random() * 0.02 + 0.008, swingOffset: Math.random() * Math.PI * 2 });
     }
-    let frame = 0;
-    let animId: number;
+    let frame = 0; let animId: number;
     const draw = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       frame++;
@@ -44,10 +41,8 @@ export default function StartPage() {
         grad.addColorStop(0, `rgba(255,220,80,${p.opacity})`);
         grad.addColorStop(0.5, `rgba(201,168,76,${p.opacity * 0.7})`);
         grad.addColorStop(1, `rgba(180,140,40,0)`);
-        ctx.beginPath();
-        ctx.arc(x, p.y, p.size, 0, Math.PI * 2);
-        ctx.fillStyle = grad;
-        ctx.fill();
+        ctx.beginPath(); ctx.arc(x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fillStyle = grad; ctx.fill();
       });
       animId = requestAnimationFrame(draw);
     };
@@ -61,18 +56,19 @@ export default function StartPage() {
       if (session) router.replace('/home');
     };
     checkSession();
-
     const ua = navigator.userAgent.toLowerCase();
     const ios = /ipad|iphone|ipod/.test(ua);
     const kakao = ua.includes('kakaotalk');
     setIsIOS(ios);
     setIsKakao(kakao);
-
-    // 카카오 인앱브라우저면 자동으로 안내 팝업 표시
     if (kakao) {
-      setTimeout(() => setShowBrowserGuide(true), 500);
+      if (ios) {
+        window.location.href = 'https://cnu-alumni.vercel.app';
+      } else {
+        window.location.href = `intent://cnu-alumni.vercel.app#Intent;scheme=https;package=com.android.chrome;fallback=https://cnu-alumni.vercel.app;end`;
+      }
+      return;
     }
-
     const handler = (e: Event) => { e.preventDefault(); setDeferredPrompt(e); };
     window.addEventListener('beforeinstallprompt', handler);
     return () => window.removeEventListener('beforeinstallprompt', handler);
@@ -88,6 +84,25 @@ export default function StartPage() {
     }
   };
 
+  const handleShare = async () => {
+    const shareData = {
+      title: '백마회 - 충남대학교교 동문 네트워크',
+      text: '한국농어촌공사 충남대학교 동문 앱',
+      url: 'https://cnu-alumni.vercel.app',
+    };
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else {
+        await navigator.clipboard.writeText('https://cnu-alumni.vercel.app');
+        alert('링크가 복사되었습니다!');
+      }
+    } catch {
+      await navigator.clipboard.writeText('https://cnu-alumni.vercel.app');
+      alert('링크가 복사되었습니다!');
+    }
+  };
+
   const handleKakaoLogin = async () => {
     setKakaoLoading(true);
     await supabase.auth.signInWithOAuth({
@@ -96,21 +111,8 @@ export default function StartPage() {
     });
   };
 
-  // 외부 브라우저로 열기
-  const openInBrowser = () => {
-    const url = 'https://cnu-alumni.vercel.app';
-    if (isIOS) {
-      // 아이폰: 사파리로 열기
-      window.location.href = url;
-    } else {
-      // 안드로이드: 크롬으로 열기
-      window.location.href = `intent://cnu-alumni.vercel.app#Intent;scheme=https;package=com.android.chrome;end`;
-    }
-  };
-
   const F = { fontFamily: "'Apple SD Gothic Neo','Noto Sans KR',sans-serif" };
 
-  /* ── PIN 입력 화면 ── */
   if (showPin) {
     return (
       <div style={{ ...F, minHeight: '100dvh', display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }}>
@@ -133,9 +135,7 @@ export default function StartPage() {
               </div>
             ))}
           </div>
-          {pinError && (
-            <div style={{ background: '#FEE2E2', color: '#DC2626', padding: '10px 14px', borderRadius: 10, fontSize: 12, marginBottom: 14, lineHeight: 1.6, textAlign: 'center', whiteSpace: 'pre-line' }}>{pinError}</div>
-          )}
+          {pinError && <div style={{ background: '#FEE2E2', color: '#DC2626', padding: '10px 14px', borderRadius: 10, fontSize: 12, marginBottom: 14, lineHeight: 1.6, textAlign: 'center', whiteSpace: 'pre-line' }}>{pinError}</div>}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, maxWidth: 280, margin: '0 auto 16px', width: '100%' }}>
             {['1','2','3','4','5','6','7','8','9','','0','⌫'].map((k, idx) => (
               <button key={idx} onClick={() => {
@@ -167,18 +167,27 @@ export default function StartPage() {
     );
   }
 
-  /* ── 메인 화면 ── */
   return (
     <div style={{ ...F, minHeight: '100dvh', position: 'relative', overflow: 'hidden' }}>
       <img src="/campus-bg.jpg" alt="" style={{ position: 'fixed', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top', filter: 'brightness(0.42) saturate(1.1)', zIndex: 0 }} />
       <div style={{ position: 'fixed', inset: 0, zIndex: 1, background: 'linear-gradient(160deg,rgba(0,30,90,0.55) 0%,rgba(0,10,40,0.2) 50%,rgba(0,5,20,0.65) 100%)' }} />
       <canvas ref={canvasRef} style={{ position: 'fixed', inset: 0, zIndex: 2, pointerEvents: 'none' }} />
 
-      {/* 홈에 추가 버튼 */}
-      <div style={{ position: 'fixed', top: 16, right: 16, zIndex: 50 }}>
-        <button onClick={() => isKakao ? setShowBrowserGuide(true) : handleInstall()}
-          style={{ background: isKakao ? '#FEE500' : 'rgba(255,255,255,0.18)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.35)', borderRadius: 22, padding: '7px 16px', fontSize: 12, color: isKakao ? '#191919' : '#fff', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'inherit' }}>
-          {isKakao ? '🌐 브라우저로 열기' : '📲 홈에 추가'}
+      {/* ── 상단 버튼 (공유 + 앱설치) ── */}
+      <div style={{ position: 'fixed', top: 16, right: 16, zIndex: 50, display: 'flex', gap: 8 }}>
+        {/* 공유 버튼 */}
+        <button onClick={handleShare}
+          style={{ background: 'rgba(255,255,255,0.18)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.35)', borderRadius: 22, padding: '7px 14px', fontSize: 12, color: '#fff', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, fontFamily: 'inherit' }}>
+          <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+          </svg>
+          공유
+        </button>
+        {/* 앱 설치하기 버튼 */}
+        <button onClick={handleInstall}
+          style={{ background: 'rgba(255,255,255,0.18)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.35)', borderRadius: 22, padding: '7px 16px', fontSize: 12, color: '#fff', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'inherit' }}>
+          📲 앱 설치하기
         </button>
       </div>
 
@@ -225,7 +234,7 @@ export default function StartPage() {
 
         <p style={{ fontSize: 11, letterSpacing: 4, color: 'rgba(201,168,76,0.95)', fontWeight: 600, marginBottom: 8, textTransform: 'uppercase' as const }}>Chungnam National University</p>
         <h1 style={{ fontSize: 36, fontWeight: 900, color: '#fff', textAlign: 'center', marginBottom: 6, textShadow: '0 2px 20px rgba(0,0,0,0.6)', letterSpacing: -0.5 }}>백마회</h1>
-        <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.65)', letterSpacing: 1, marginBottom: 32 }}>한국농어촌공사 충청지역 동문 네트워크</p>
+        <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.65)', letterSpacing: 1, marginBottom: 32 }}>충남대학교 in 한국농어촌공사</p>
 
         <div style={{ width: 60, height: 1, marginBottom: 32, background: 'linear-gradient(90deg,transparent,rgba(201,168,76,0.9),transparent)' }} />
 
@@ -245,77 +254,34 @@ export default function StartPage() {
         </div>
 
         <p style={{ marginTop: 32, fontSize: 11, color: 'rgba(255,255,255,0.25)', textAlign: 'center', letterSpacing: 0.3 }}>
-          © 2025 백마회 · 한국농어촌공사 충청지역본부 · Chungnam National University Alumni
+        Copyright 2026. 임원일. All rights reserved. 
         </p>
       </div>
 
-      {/* ── 카카오 인앱브라우저 안내 팝업 ── */}
-      {showBrowserGuide && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 100, display: 'flex', alignItems: 'flex-end' }} onClick={() => setShowBrowserGuide(false)}>
-          <div style={{ background: '#fff', borderRadius: '20px 20px 0 0', padding: '24px 20px 44px', width: '100%' }} onClick={e => e.stopPropagation()}>
-            <div style={{ textAlign: 'center', marginBottom: 16 }}>
-              <p style={{ fontSize: 24, marginBottom: 6 }}>📱</p>
-              <p style={{ fontSize: 16, fontWeight: 800, color: '#0f172a', marginBottom: 4 }}>앱으로 설치하기</p>
-              <p style={{ fontSize: 12, color: '#94a3b8' }}>더 편하게 사용하려면 앱을 설치하세요</p>
-            </div>
-
-            {/* 갤럭시 안내 */}
-            {!isIOS && (
-              <>
-                <div style={{ background: '#f8fafc', borderRadius: 14, padding: '16px', marginBottom: 12 }}>
-                  <p style={{ fontSize: 13, fontWeight: 700, color: '#0f172a', marginBottom: 10 }}>🤖 갤럭시 (안드로이드)</p>
-                  <div style={{ fontSize: 13, color: '#475569', lineHeight: 2 }}>
-                    <p>1. 아래 <strong style={{ color: '#1B3F7B' }}>"크롬으로 열기"</strong> 버튼 탭</p>
-                    <p>2. 크롬 주소창 오른쪽 <strong>⋮ 메뉴</strong> 탭</p>
-                    <p>3. <strong>"홈 화면에 추가"</strong> 선택 → <strong>"추가"</strong></p>
-                  </div>
-                </div>
-                <button onClick={openInBrowser}
-                  style={{ width: '100%', background: 'linear-gradient(135deg, #0d2d6e, #1B3F7B)', border: 'none', borderRadius: 14, padding: '14px', fontSize: 15, fontWeight: 700, color: '#fff', cursor: 'pointer', fontFamily: 'inherit', marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                  🌐 크롬으로 열기
-                </button>
-              </>
-            )}
-
-            {/* 아이폰 안내 */}
-            {isIOS && (
-              <>
-                <div style={{ background: '#f8fafc', borderRadius: 14, padding: '16px', marginBottom: 12 }}>
-                  <p style={{ fontSize: 13, fontWeight: 700, color: '#0f172a', marginBottom: 10 }}>🍎 아이폰</p>
-                  <div style={{ fontSize: 13, color: '#475569', lineHeight: 2 }}>
-                    <p>1. 아래 <strong style={{ color: '#1B3F7B' }}>"사파리로 열기"</strong> 버튼 탭</p>
-                    <p>2. 하단 <strong>공유 버튼(□↑)</strong> 탭</p>
-                    <p>3. <strong>"홈 화면에 추가"</strong> → <strong>"추가"</strong></p>
-                  </div>
-                </div>
-                <button onClick={openInBrowser}
-                  style={{ width: '100%', background: 'linear-gradient(135deg, #0d2d6e, #1B3F7B)', border: 'none', borderRadius: 14, padding: '14px', fontSize: 15, fontWeight: 700, color: '#fff', cursor: 'pointer', fontFamily: 'inherit', marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                  🌐 사파리로 열기
-                </button>
-              </>
-            )}
-
-            <button onClick={() => setShowBrowserGuide(false)}
-              style={{ width: '100%', background: '#f1f5f9', border: 'none', borderRadius: 14, padding: '13px', fontSize: 14, fontWeight: 600, color: '#64748b', cursor: 'pointer', fontFamily: 'inherit' }}>
-              나중에 하기
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* 홈에 추가 안내 팝업 (크롬/사파리용) */}
+      {/* 앱 설치 안내 팝업 */}
       {showInstallGuide && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 100, display: 'flex', alignItems: 'flex-end' }} onClick={() => setShowInstallGuide(false)}>
           <div style={{ background: '#fff', borderRadius: '20px 20px 0 0', padding: '24px 20px 44px', width: '100%' }} onClick={e => e.stopPropagation()}>
-            <p style={{ fontSize: 16, fontWeight: 700, color: '#111827', marginBottom: 16, textAlign: 'center' }}>📲 홈 화면에 추가하기</p>
+            <p style={{ fontSize: 16, fontWeight: 700, color: '#111827', marginBottom: 16, textAlign: 'center' }}>📲 앱 설치하기</p>
             <div style={{ background: '#F5F7FA', borderRadius: 12, padding: 16, marginBottom: 16, fontSize: 13, color: '#374151', lineHeight: 2 }}>
               {isIOS ? (
-                <><p>1. 하단 <strong>공유 버튼(□↑)</strong> 탭</p><p>2. <strong>"홈 화면에 추가"</strong> 선택</p><p>3. <strong>"추가"</strong> 탭</p></>
+                <>
+                  <p>1. 하단 <strong>공유 버튼(□↑)</strong> 탭</p>
+                  <p>2. <strong>"홈 화면에 추가"</strong> 선택</p>
+                  <p>3. <strong>"추가"</strong> 탭 → 완료!</p>
+                </>
               ) : (
-                <><p>1. 우측 상단 <strong>⋮ 메뉴</strong> 탭</p><p>2. <strong>"홈 화면에 추가"</strong> 선택</p><p>3. <strong>"추가"</strong> 탭</p></>
+                <>
+                  <p>1. 우측 상단 <strong>⋮ 메뉴</strong> 탭</p>
+                  <p>2. <strong>"홈 화면에 추가"</strong> 선택</p>
+                  <p>3. <strong>"추가"</strong> 탭 → 완료!</p>
+                </>
               )}
             </div>
-            <button onClick={() => setShowInstallGuide(false)} style={{ width: '100%', background: '#1B3F7B', border: 'none', borderRadius: 12, padding: 14, fontSize: 15, fontWeight: 700, color: '#fff', cursor: 'pointer' }}>확인</button>
+            <button onClick={() => setShowInstallGuide(false)}
+              style={{ width: '100%', background: '#1B3F7B', border: 'none', borderRadius: 12, padding: 14, fontSize: 15, fontWeight: 700, color: '#fff', cursor: 'pointer' }}>
+              확인
+            </button>
           </div>
         </div>
       )}

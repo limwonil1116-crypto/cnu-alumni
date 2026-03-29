@@ -30,7 +30,6 @@ const avatarColor = (name: string) => {
 
 const F = { fontFamily:"'Apple SD Gothic Neo','Noto Sans KR',sans-serif" };
 
-// 연락처 저장 (vCard)
 function saveContact(alumni: AlumniDetail) {
   const vcard = [
     'BEGIN:VCARD',
@@ -44,7 +43,6 @@ function saveContact(alumni: AlumniDetail) {
     alumni.department ? `NOTE:충청지역 백마회 / ${alumni.department}` : 'NOTE:충청지역 백마회',
     'END:VCARD',
   ].filter(Boolean).join('\n');
-
   const blob = new Blob([vcard], { type: 'text/vcard;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -61,7 +59,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState('');
   const [showCard, setShowCard] = useState(false);
-  const [showMap, setShowMap] = useState(false); // ← 지도 토글
+  const [showMap, setShowMap] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
@@ -81,36 +79,25 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
       .select('id, name, phone, email, admission_year, graduation_year, department_name, alumni_profiles (id, company, job_title, region, address, bio, photo_url, card_image_url)')
       .eq('id', id)
       .single();
-
     if (data) {
       const p = (data as any).alumni_profiles?.[0];
       const detail: AlumniDetail = {
-        id: data.id,
-        name: data.name,
+        id: data.id, name: data.name,
         department: (data as any).department_name || '',
         admission_year: data.admission_year,
         graduation_year: data.graduation_year,
-        phone: data.phone,
-        email: data.email,
-        company: p?.company,
-        job_title: p?.job_title,
-        region: p?.region,
-        address: p?.address,
-        bio: p?.bio,
-        photo_url: p?.photo_url,
-        card_image_url: p?.card_image_url,
-        profile_id: p?.id,
+        phone: data.phone, email: data.email,
+        company: p?.company, job_title: p?.job_title,
+        region: p?.region, address: p?.address,
+        bio: p?.bio, photo_url: p?.photo_url,
+        card_image_url: p?.card_image_url, profile_id: p?.id,
       };
       setAlumni(detail);
       setForm({
-        company: p?.company || '',
-        job_title: p?.job_title || '',
-        region: p?.region || '',
-        address: p?.address || '',
-        bio: p?.bio || '',
-        phone: data.phone || '',
-        photo_url: p?.photo_url || '',
-        card_image_url: p?.card_image_url || '',
+        company: p?.company || '', job_title: p?.job_title || '',
+        region: p?.region || '', address: p?.address || '',
+        bio: p?.bio || '', phone: data.phone || '',
+        photo_url: p?.photo_url || '', card_image_url: p?.card_image_url || '',
       });
     }
     setLoading(false);
@@ -129,8 +116,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
   };
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const file = e.target.files?.[0]; if (!file) return;
     setUploadingPhoto(true);
     const url = await uploadImage(file, 'profiles');
     if (url) { setForm(f => ({ ...f, photo_url: url })); showToast('사진 업로드 완료'); }
@@ -139,8 +125,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
   };
 
   const handleCardUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const file = e.target.files?.[0]; if (!file) return;
     setUploadingCard(true);
     const url = await uploadImage(file, 'cards');
     if (url) { setForm(f => ({ ...f, card_image_url: url })); showToast('명함 업로드 완료'); }
@@ -153,29 +138,22 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
     await supabase.from('alumni_master').update({ phone: form.phone || null }).eq('id', id);
     if (alumni?.profile_id) {
       await supabase.from('alumni_profiles').update({
-        company: form.company || null,
-        job_title: form.job_title || null,
-        region: form.region || null,
-        address: form.address || null,
-        bio: form.bio || null,
-        photo_url: form.photo_url || null,
+        company: form.company || null, job_title: form.job_title || null,
+        region: form.region || null, address: form.address || null,
+        bio: form.bio || null, photo_url: form.photo_url || null,
         card_image_url: form.card_image_url || null,
       }).eq('id', alumni.profile_id);
     } else {
       await supabase.from('alumni_profiles').insert({
         alumni_id: id,
-        company: form.company || null,
-        job_title: form.job_title || null,
-        region: form.region || null,
-        address: form.address || null,
-        bio: form.bio || null,
-        photo_url: form.photo_url || null,
+        company: form.company || null, job_title: form.job_title || null,
+        region: form.region || null, address: form.address || null,
+        bio: form.bio || null, photo_url: form.photo_url || null,
         card_image_url: form.card_image_url || null,
       });
     }
     await fetchData();
-    setSaving(false);
-    setEditMode(false);
+    setSaving(false); setEditMode(false);
     showToast('저장되었습니다');
   };
 
@@ -202,10 +180,9 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
   );
 
   const bar = <div style={{ width:4, height:16, background:'#1B3F7B', borderRadius:2 }} />;
-
   const fieldRows = [
     { label:'회사명', key:'company', placeholder:'한국농어촌공사' },
-    { label:'직무/직책', key:'job_title', placeholder:'사원' },
+    { label:'직무/직책', key:'job_title', placeholder:'과장' },
     { label:'지역', key:'region', placeholder:'충남' },
     { label:'주소 (지도 표시용)', key:'address', placeholder:'대전광역시 서구 대덕대로 290번길 27' },
     { label:'휴대폰', key:'phone', placeholder:'01047581293' },
@@ -217,8 +194,8 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
       {/* ── 헤더 ── */}
       <div style={{ background:'linear-gradient(135deg, #0d2d6e 0%, #1B3F7B 60%, #1a5276 100%)', boxShadow:'0 2px 12px rgba(13,45,110,0.3)' }}>
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 16px' }}>
-          <button onClick={() => router.back()} style={{ background:'rgba(255,255,255,0.15)', border:'1px solid rgba(255,255,255,0.2)', borderRadius:10, width:36, height:36, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'#fff', fontSize:16 }}>
-            <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg>
+          <button onClick={() => router.back()} style={{ background:'rgba(255,255,255,0.15)', border:'1px solid rgba(255,255,255,0.2)', borderRadius:10, width:36, height:36, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}>
+            <svg width="18" height="18" fill="none" stroke="#fff" strokeWidth="2" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg>
           </button>
           <span style={{ color:'#fff', fontSize:16, fontWeight:700 }}>동문 프로필</span>
           <button onClick={() => editMode ? handleSave() : setEditMode(true)} disabled={saving}
@@ -227,15 +204,13 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
           </button>
         </div>
 
-        {/* 프로필 */}
-        <div style={{ display:'flex', flexDirection:'column', alignItems:'center', padding:'8px 16px 28px' }}>
+        {/* 프로필 사진 + 이름 */}
+        <div style={{ display:'flex', flexDirection:'column', alignItems:'center', padding:'8px 16px 20px' }}>
           <div style={{ position:'relative', marginBottom:14 }}>
             <div style={{ width:96, height:96, borderRadius:20, background:avatarColor(alumni.name), border:'3px solid rgba(255,255,255,0.4)', overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 4px 16px rgba(0,0,0,0.3)' }}>
-              {(editMode ? form.photo_url : alumni.photo_url) ? (
-                <img src={editMode ? form.photo_url : alumni.photo_url!} alt={alumni.name} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
-              ) : (
-                <span style={{ color:'#fff', fontSize:38, fontWeight:800 }}>{alumni.name.charAt(0)}</span>
-              )}
+              {(editMode ? form.photo_url : alumni.photo_url)
+                ? <img src={editMode ? form.photo_url : alumni.photo_url!} alt={alumni.name} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+                : <span style={{ color:'#fff', fontSize:38, fontWeight:800 }}>{alumni.name.charAt(0)}</span>}
             </div>
             {editMode && (
               <button onClick={() => photoRef.current?.click()} disabled={uploadingPhoto}
@@ -245,24 +220,24 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
             )}
           </div>
           <input ref={photoRef} type="file" accept="image/*" style={{ display:'none' }} onChange={handlePhotoUpload} />
-          <h2 style={{ color:'#fff', fontSize:22, fontWeight:800, marginBottom:4, letterSpacing:1 }}>{alumni.name}</h2>
+          <h2 style={{ color:'#fff', fontSize:22, fontWeight:800, marginBottom:4 }}>{alumni.name}</h2>
           {alumni.job_title && <p style={{ color:'rgba(255,255,255,0.75)', fontSize:13, marginBottom:2 }}>{alumni.job_title}</p>}
           {alumni.company && <p style={{ color:'rgba(255,255,255,0.55)', fontSize:12 }}>{alumni.company}</p>}
         </div>
 
-        {/* 기수 뱃지 */}
-        {alumni.admission_year && (
-          <div style={{ display:'flex', justifyContent:'center', paddingBottom:14, gap:8 }}>
+        {/* 뱃지 */}
+        <div style={{ display:'flex', justifyContent:'center', paddingBottom:14, gap:8, flexWrap:'wrap', padding:'0 16px 14px' }}>
+          {alumni.admission_year && (
             <span style={{ background:'rgba(255,255,255,0.15)', color:'#fff', fontSize:11, padding:'4px 14px', borderRadius:20, border:'1px solid rgba(255,255,255,0.2)' }}>
               입학 {alumni.admission_year}년
             </span>
-            {alumni.department && (
-              <span style={{ background:'rgba(255,255,255,0.15)', color:'#fff', fontSize:11, padding:'4px 14px', borderRadius:20, border:'1px solid rgba(255,255,255,0.2)' }}>
-                {alumni.department}
-              </span>
-            )}
-          </div>
-        )}
+          )}
+          {alumni.department && (
+            <span style={{ background:'rgba(255,255,255,0.15)', color:'#fff', fontSize:11, padding:'4px 14px', borderRadius:20, border:'1px solid rgba(255,255,255,0.2)' }}>
+              {alumni.department}
+            </span>
+          )}
+        </div>
       </div>
 
       <div style={{ flex:1, overflowY:'auto', padding:'14px 14px 40px' }}>
@@ -273,58 +248,64 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
           </div>
         )}
 
-        {/* ── 연락처 저장 + 연락 버튼 ── */}
-        {!editMode && (alumni.phone || alumni.email) && (
-          <div style={{ background:'#fff', borderRadius:16, padding:'14px 16px', marginBottom:10, boxShadow:'0 1px 4px rgba(13,45,110,0.07)', border:'1px solid #e2e8f0' }}>
-            {/* 연락처 저장 버튼 */}
-            {alumni.phone && (
-              <button onClick={handleSaveContact}
-                style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'center', gap:8, padding:'12px', background: contactSaved ? 'linear-gradient(135deg,#16a34a,#15803d)' : 'linear-gradient(135deg,#0d2d6e,#1B3F7B)', border:'none', borderRadius:12, color:'#fff', fontSize:14, fontWeight:700, cursor:'pointer', fontFamily:'inherit', marginBottom:10, boxShadow:'0 3px 10px rgba(13,45,110,0.25)', transition:'all 0.2s' }}>
-                {contactSaved ? (
-                  <><svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>연락처 저장 완료!</>
-                ) : (
-                  <><svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>연락처 저장하기</>
-                )}
-              </button>
+        {/* ── 연락처 저장 버튼 (항상 표시, 전화번호 있을 때) ── */}
+        {!editMode && alumni.phone && (
+          <button onClick={handleSaveContact}
+            style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'center', gap:8, padding:'14px', background: contactSaved ? 'linear-gradient(135deg,#16a34a,#15803d)' : 'linear-gradient(135deg,#0d2d6e,#1B3F7B)', border:'none', borderRadius:16, color:'#fff', fontSize:15, fontWeight:700, cursor:'pointer', fontFamily:'inherit', marginBottom:10, boxShadow:'0 4px 14px rgba(13,45,110,0.3)', transition:'all 0.2s' }}>
+            {contactSaved ? (
+              <>
+                <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+                연락처 저장 완료!
+              </>
+            ) : (
+              <>
+                <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+                  <line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/>
+                </svg>
+                📱 {alumni.name} 연락처 저장하기
+              </>
             )}
+          </button>
+        )}
 
-            {/* 전화/문자/메일 버튼 */}
-            <div style={{ display:'flex', gap:8 }}>
-              {alumni.phone && (
-                <a href={'tel:' + alumni.phone}
-                  style={{ flex:1, background:'#eff6ff', color:'#1B3F7B', borderRadius:10, padding:'10px', textAlign:'center', fontSize:13, fontWeight:700, textDecoration:'none', display:'flex', flexDirection:'column', alignItems:'center', gap:3 }}>
-                  <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-                  전화
-                </a>
-              )}
-              {alumni.phone && (
-                <a href={'sms:' + alumni.phone}
-                  style={{ flex:1, background:'#f8fafc', color:'#475569', borderRadius:10, padding:'10px', textAlign:'center', fontSize:13, fontWeight:700, textDecoration:'none', display:'flex', flexDirection:'column', alignItems:'center', gap:3 }}>
-                  <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                  문자
-                </a>
-              )}
-              {alumni.email && (
-                <a href={'mailto:' + alumni.email}
-                  style={{ flex:1, background:'#f8fafc', color:'#475569', borderRadius:10, padding:'10px', textAlign:'center', fontSize:13, fontWeight:700, textDecoration:'none', display:'flex', flexDirection:'column', alignItems:'center', gap:3 }}>
-                  <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-                  메일
-                </a>
-              )}
-            </div>
+        {/* ── 전화 / 문자 / 메일 버튼 ── */}
+        {!editMode && (alumni.phone || alumni.email) && (
+          <div style={{ display:'flex', gap:8, marginBottom:10 }}>
+            {alumni.phone && (
+              <a href={'tel:' + alumni.phone}
+                style={{ flex:1, background:'#fff', border:'1px solid #e2e8f0', color:'#1B3F7B', borderRadius:12, padding:'12px 8px', textAlign:'center', fontSize:13, fontWeight:700, textDecoration:'none', display:'flex', flexDirection:'column', alignItems:'center', gap:4, boxShadow:'0 1px 4px rgba(13,45,110,0.07)' }}>
+                <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                전화
+              </a>
+            )}
+            {alumni.phone && (
+              <a href={'sms:' + alumni.phone}
+                style={{ flex:1, background:'#fff', border:'1px solid #e2e8f0', color:'#475569', borderRadius:12, padding:'12px 8px', textAlign:'center', fontSize:13, fontWeight:700, textDecoration:'none', display:'flex', flexDirection:'column', alignItems:'center', gap:4, boxShadow:'0 1px 4px rgba(13,45,110,0.07)' }}>
+                <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                문자
+              </a>
+            )}
+            {alumni.email && (
+              <a href={'mailto:' + alumni.email}
+                style={{ flex:1, background:'#fff', border:'1px solid #e2e8f0', color:'#475569', borderRadius:12, padding:'12px 8px', textAlign:'center', fontSize:13, fontWeight:700, textDecoration:'none', display:'flex', flexDirection:'column', alignItems:'center', gap:4, boxShadow:'0 1px 4px rgba(13,45,110,0.07)' }}>
+                <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                메일
+              </a>
+            )}
           </div>
         )}
 
         {/* ── 소속 카드 ── */}
         <div style={{ background:'#fff', borderRadius:16, padding:'16px', marginBottom:10, boxShadow:'0 1px 4px rgba(13,45,110,0.07)', border:'1px solid #e2e8f0' }}>
-          <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12 }}>{bar}<span style={{ fontSize:11, fontWeight:700, color:'#64748b', letterSpacing:1.5, textTransform:'uppercase' }}>소속</span></div>
+          <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12 }}>{bar}<span style={{ fontSize:11, fontWeight:700, color:'#64748b', letterSpacing:1.5, textTransform:'uppercase' as const }}>소속</span></div>
           {editMode ? (
             <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
               {fieldRows.map(f => (
                 <div key={f.key}>
                   <p style={{ fontSize:11, color:'#94a3b8', marginBottom:3 }}>{f.label}</p>
                   <input value={(form as any)[f.key]} onChange={e => setForm(prev => ({ ...prev, [f.key]: e.target.value }))} placeholder={f.placeholder}
-                    style={{ width:'100%', padding:'9px 12px', border:'1.5px solid #e2e8f0', borderRadius:10, fontSize:13, outline:'none', boxSizing:'border-box', fontFamily:'inherit' }} />
+                    style={{ width:'100%', padding:'9px 12px', border:'1.5px solid #e2e8f0', borderRadius:10, fontSize:13, outline:'none', boxSizing:'border-box' as const, fontFamily:'inherit' }} />
                 </div>
               ))}
             </div>
@@ -350,7 +331,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
 
         {/* ── 학력 카드 ── */}
         <div style={{ background:'#fff', borderRadius:16, padding:'16px', marginBottom:10, boxShadow:'0 1px 4px rgba(13,45,110,0.07)', border:'1px solid #e2e8f0' }}>
-          <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12 }}>{bar}<span style={{ fontSize:11, fontWeight:700, color:'#64748b', letterSpacing:1.5, textTransform:'uppercase' }}>학력</span></div>
+          <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12 }}>{bar}<span style={{ fontSize:11, fontWeight:700, color:'#64748b', letterSpacing:1.5, textTransform:'uppercase' as const }}>학력</span></div>
           {[
             { label:'학과', value: alumni.department },
             { label:'입학년도', value: alumni.admission_year ? alumni.admission_year + '년' : undefined },
@@ -365,10 +346,10 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
 
         {/* ── 소개 카드 ── */}
         <div style={{ background:'#fff', borderRadius:16, padding:'16px', marginBottom:10, boxShadow:'0 1px 4px rgba(13,45,110,0.07)', border:'1px solid #e2e8f0' }}>
-          <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12 }}>{bar}<span style={{ fontSize:11, fontWeight:700, color:'#64748b', letterSpacing:1.5, textTransform:'uppercase' }}>소개</span></div>
+          <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12 }}>{bar}<span style={{ fontSize:11, fontWeight:700, color:'#64748b', letterSpacing:1.5, textTransform:'uppercase' as const }}>소개</span></div>
           {editMode ? (
             <textarea value={form.bio} onChange={e => setForm(f => ({ ...f, bio: e.target.value }))} placeholder="간단한 소개를 입력해 주세요" rows={3}
-              style={{ width:'100%', padding:'9px 12px', border:'1.5px solid #e2e8f0', borderRadius:10, fontSize:13, outline:'none', resize:'none', boxSizing:'border-box', fontFamily:'inherit' }} />
+              style={{ width:'100%', padding:'9px 12px', border:'1.5px solid #e2e8f0', borderRadius:10, fontSize:13, outline:'none', resize:'none', boxSizing:'border-box' as const, fontFamily:'inherit' }} />
           ) : (
             <p style={{ fontSize:13, color: alumni.bio ? '#475569' : '#cbd5e1', lineHeight:1.8 }}>{alumni.bio || '수정 버튼을 눌러 소개를 추가해주세요'}</p>
           )}
@@ -377,7 +358,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
         {/* ── 명함 카드 ── */}
         <div style={{ background:'#fff', borderRadius:16, padding:'16px', marginBottom:10, boxShadow:'0 1px 4px rgba(13,45,110,0.07)', border:'1px solid #e2e8f0' }}>
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
-            <div style={{ display:'flex', alignItems:'center', gap:8 }}>{bar}<span style={{ fontSize:11, fontWeight:700, color:'#64748b', letterSpacing:1.5, textTransform:'uppercase' }}>명함</span></div>
+            <div style={{ display:'flex', alignItems:'center', gap:8 }}>{bar}<span style={{ fontSize:11, fontWeight:700, color:'#64748b', letterSpacing:1.5, textTransform:'uppercase' as const }}>명함</span></div>
             {editMode && (
               <button onClick={() => cardRef.current?.click()} disabled={uploadingCard}
                 style={{ background:'#eff6ff', border:'none', borderRadius:8, padding:'6px 12px', fontSize:12, color:'#1B3F7B', fontWeight:600, cursor:'pointer' }}>
@@ -398,19 +379,17 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
           )}
         </div>
 
-        {/* ── 위치 카드 (버튼 클릭 시에만 지도 표시) ── */}
+        {/* ── 위치 카드 ── */}
         {!editMode && alumni.address && (
           <div style={{ background:'#fff', borderRadius:16, padding:'16px', marginBottom:10, boxShadow:'0 1px 4px rgba(13,45,110,0.07)', border:'1px solid #e2e8f0' }}>
             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
-              <div style={{ display:'flex', alignItems:'center', gap:8 }}>{bar}<span style={{ fontSize:11, fontWeight:700, color:'#64748b', letterSpacing:1.5, textTransform:'uppercase' }}>위치</span></div>
+              <div style={{ display:'flex', alignItems:'center', gap:8 }}>{bar}<span style={{ fontSize:11, fontWeight:700, color:'#64748b', letterSpacing:1.5, textTransform:'uppercase' as const }}>위치</span></div>
               <a href={'https://map.kakao.com/link/search/' + encodeURIComponent(alumni.address)} target="_blank" rel="noreferrer"
                 style={{ background:'#FEE500', border:'none', borderRadius:8, padding:'6px 12px', fontSize:12, color:'#191919', fontWeight:700, textDecoration:'none' }}>
                 카카오맵 열기
               </a>
             </div>
             <p style={{ fontSize:12, color:'#64748b', marginBottom:10 }}>📍 {alumni.address}</p>
-
-            {/* 지도는 버튼 클릭 시에만 표시 */}
             {!showMap ? (
               <button onClick={() => setShowMap(true)}
                 style={{ width:'100%', padding:'10px', background:'#f8fafc', border:'1px solid #e2e8f0', borderRadius:10, fontSize:13, color:'#475569', cursor:'pointer', fontFamily:'inherit', fontWeight:500 }}>
@@ -419,12 +398,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
             ) : (
               <>
                 <div style={{ borderRadius:12, overflow:'hidden', border:'1px solid #e2e8f0', marginBottom:8 }}>
-                  <iframe
-                    src={'https://map.kakao.com/?q=' + encodeURIComponent(alumni.address)}
-                    width="100%" height="200"
-                    style={{ border:'none', display:'block' }}
-                    title="카카오맵"
-                  />
+                  <iframe src={'https://map.kakao.com/?q=' + encodeURIComponent(alumni.address)} width="100%" height="200" style={{ border:'none', display:'block' }} title="카카오맵" />
                 </div>
                 <button onClick={() => setShowMap(false)}
                   style={{ width:'100%', padding:'8px', background:'#f1f5f9', border:'none', borderRadius:10, fontSize:12, color:'#64748b', cursor:'pointer', fontFamily:'inherit' }}>
@@ -443,14 +417,12 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
         )}
       </div>
 
-      {/* 명함 전체화면 */}
       {showCard && alumni.card_image_url && (
         <div onClick={() => setShowCard(false)} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.88)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:50, padding:24 }}>
           <img src={alumni.card_image_url} alt="명함" style={{ width:'100%', maxWidth:380, borderRadius:16 }} />
         </div>
       )}
 
-      {/* 토스트 */}
       {toast && (
         <div style={{ position:'fixed', bottom:30, left:'50%', transform:'translateX(-50%)', background:'#0f172a', color:'#fff', padding:'10px 22px', borderRadius:50, fontSize:13, fontWeight:500, zIndex:50, whiteSpace:'nowrap', boxShadow:'0 4px 12px rgba(0,0,0,0.3)' }}>
           ✓ {toast}
