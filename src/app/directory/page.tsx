@@ -187,7 +187,7 @@ export default function DirectoryPage() {
             <div style={{ background: '#fff', borderRadius: 8, padding: '4px 10px', height: 32, display: 'flex', alignItems: 'center' }}>
               <img src="/krc-logo.jpg" alt="KRC" style={{ height: 22, width: 'auto', objectFit: 'contain' }} />
             </div>
-            <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11 }}>한국농어촌공사</span>
+            <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11 }}></span>
           </div>
           <TopButtons />
         </div>
