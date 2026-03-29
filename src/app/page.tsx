@@ -14,9 +14,9 @@ export default function StartPage() {
   const [pinError, setPinError] = useState('');
   const [showInstallGuide, setShowInstallGuide] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
-  const [isKakao, setIsKakao] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
 
+  /* ── 황금 비 캔버스 ── */
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -51,24 +51,52 @@ export default function StartPage() {
   }, []);
 
   useEffect(() => {
+    const ua = navigator.userAgent;
+    const uaLower = ua.toLowerCase();
+    const ios = /ipad|iphone|ipod/i.test(ua);
+    const isKakao = uaLower.includes('kakaotalk');
+    const isAndroid = /android/i.test(ua);
+    setIsIOS(ios);
+
+    /* ── 카카오 인앱브라우저 감지 → 외부 브라우저 자동 이동 ── */
+    if (isKakao) {
+      const targetUrl = 'https://cnu-alumni.vercel.app';
+
+      if (isAndroid) {
+        // 안드로이드: 크롬 시도 → 없으면 삼성브라우저 → 없으면 기본브라우저
+        window.location.href = [
+          `intent://${targetUrl.replace('https://', '')}`,
+          '#Intent',
+          'scheme=https',
+          'package=com.android.chrome',           // 크롬
+          `S.browser_fallback_url=${encodeURIComponent(
+            // 크롬 없으면 삼성브라우저로
+            `intent://${targetUrl.replace('https://', '')}#Intent;scheme=https;package=com.sec.android.app.sbrowser;S.browser_fallback_url=${encodeURIComponent(targetUrl)};end`
+          )}`,
+          'end',
+        ].join(';');
+      } else if (ios) {
+        // 아이폰: 크롬 시도 → 없으면 사파리(기본)
+        // googlechrome:// 스킴으로 크롬 열기 시도
+        const chromeUrl = targetUrl.replace('https://', 'googlechromes://');
+        // 크롬 앱이 없으면 사파리로 fallback
+        const timer = setTimeout(() => {
+          window.location.href = targetUrl; // 사파리로 열기
+        }, 1500);
+        window.location.href = chromeUrl;
+        // 크롬이 열리면 타이머 취소 (페이지가 blur되므로)
+        window.addEventListener('blur', () => clearTimeout(timer), { once: true });
+      }
+      return;
+    }
+
+    /* ── 일반 브라우저 ── */
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) router.replace('/home');
     };
     checkSession();
-    const ua = navigator.userAgent.toLowerCase();
-    const ios = /ipad|iphone|ipod/.test(ua);
-    const kakao = ua.includes('kakaotalk');
-    setIsIOS(ios);
-    setIsKakao(kakao);
-    if (kakao) {
-      if (ios) {
-        window.location.href = 'https://cnu-alumni.vercel.app';
-      } else {
-        window.location.href = `intent://cnu-alumni.vercel.app#Intent;scheme=https;package=com.android.chrome;fallback=https://cnu-alumni.vercel.app;end`;
-      }
-      return;
-    }
+
     const handler = (e: Event) => { e.preventDefault(); setDeferredPrompt(e); };
     window.addEventListener('beforeinstallprompt', handler);
     return () => window.removeEventListener('beforeinstallprompt', handler);
@@ -86,7 +114,7 @@ export default function StartPage() {
 
   const handleShare = async () => {
     const shareData = {
-      title: '백마회 - 충남대학교교 동문 네트워크',
+      title: '백마회 - 충남대학교 동문 네트워크',
       text: '한국농어촌공사 충남대학교 동문 앱',
       url: 'https://cnu-alumni.vercel.app',
     };
@@ -113,6 +141,7 @@ export default function StartPage() {
 
   const F = { fontFamily: "'Apple SD Gothic Neo','Noto Sans KR',sans-serif" };
 
+  /* ── PIN 입력 화면 ── */
   if (showPin) {
     return (
       <div style={{ ...F, minHeight: '100dvh', display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }}>
@@ -167,6 +196,7 @@ export default function StartPage() {
     );
   }
 
+  /* ── 메인 화면 ── */
   return (
     <div style={{ ...F, minHeight: '100dvh', position: 'relative', overflow: 'hidden' }}>
       <img src="/campus-bg.jpg" alt="" style={{ position: 'fixed', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top', filter: 'brightness(0.42) saturate(1.1)', zIndex: 0 }} />
@@ -175,7 +205,6 @@ export default function StartPage() {
 
       {/* ── 상단 버튼 (공유 + 앱설치) ── */}
       <div style={{ position: 'fixed', top: 16, right: 16, zIndex: 50, display: 'flex', gap: 8 }}>
-        {/* 공유 버튼 */}
         <button onClick={handleShare}
           style={{ background: 'rgba(255,255,255,0.18)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.35)', borderRadius: 22, padding: '7px 14px', fontSize: 12, color: '#fff', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, fontFamily: 'inherit' }}>
           <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -184,7 +213,6 @@ export default function StartPage() {
           </svg>
           공유
         </button>
-        {/* 앱 설치하기 버튼 */}
         <button onClick={handleInstall}
           style={{ background: 'rgba(255,255,255,0.18)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.35)', borderRadius: 22, padding: '7px 16px', fontSize: 12, color: '#fff', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'inherit' }}>
           📲 앱 설치하기
@@ -254,7 +282,7 @@ export default function StartPage() {
         </div>
 
         <p style={{ marginTop: 32, fontSize: 11, color: 'rgba(255,255,255,0.25)', textAlign: 'center', letterSpacing: 0.3 }}>
-        Copyright 2026. 임원일. All rights reserved. 
+          Copyright 2026. 임원일. All rights reserved.
         </p>
       </div>
 
