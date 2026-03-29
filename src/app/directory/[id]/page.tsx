@@ -23,7 +23,19 @@ interface AlumniDetail {
   organization?: string;
 }
 
-const ORG_LIST = ['한국농어촌공사', '충남도청', '세종시', '충청시군'];
+const ORG_LIST = [
+  '한국농어촌공사',
+  '한국농수산식품유통공사',
+  '마사회',
+  '농촌진흥청',
+  '농림축산식품부',
+  '충남도청',
+  '세종특별자치시',
+  '대전광역시',
+  '천안시', '공주시', '보령시', '아산시', '서산시',
+  '논산시', '계룡시', '당진시',
+  '금산군', '부여군', '서천군', '청양군', '홍성군', '예산군', '태안군',
+];
 
 const avatarColor = (name: string) => {
   const colors = [['#0d2d6e','#1a4ba8'],['#1a3a6e','#1e5fa8'],['#0d4d6e','#1a7aa8'],['#1a2d6e','#2a4ba8'],['#0d3d5e','#1a6090'],['#162850','#1e4080']];
@@ -41,7 +53,7 @@ function saveContact(alumni: AlumniDetail) {
     alumni.company ? `ORG:${alumni.company}` : '',
     alumni.job_title ? `TITLE:${alumni.job_title}` : '',
     alumni.email ? `EMAIL:${alumni.email}` : '',
-    alumni.department ? `NOTE:충청지역 백마회 / ${alumni.department}` : 'NOTE:충청지역 백마회',
+    alumni.department ? `NOTE:충남대학교 백마회 / ${alumni.department}` : 'NOTE:충남대학교 백마회',
     'END:VCARD',
   ].filter(Boolean).join('\n');
   const blob = new Blob([vcard], { type: 'text/vcard;charset=utf-8' });
