@@ -20,7 +20,10 @@ interface AlumniDetail {
   photo_url?: string;
   card_image_url?: string;
   profile_id?: string;
+  organization?: string;
 }
+
+const ORG_LIST = ['한국농어촌공사', '충남도청', '세종시', '충청시군'];
 
 const avatarColor = (name: string) => {
   const colors = [['#0d2d6e','#1a4ba8'],['#1a3a6e','#1e5fa8'],['#0d4d6e','#1a7aa8'],['#1a2d6e','#2a4ba8'],['#0d3d5e','#1a6090'],['#162850','#1e4080']];
@@ -32,10 +35,8 @@ const F = { fontFamily:"'Apple SD Gothic Neo','Noto Sans KR',sans-serif" };
 
 function saveContact(alumni: AlumniDetail) {
   const vcard = [
-    'BEGIN:VCARD',
-    'VERSION:3.0',
-    `FN:${alumni.name}`,
-    `N:${alumni.name};;;`,
+    'BEGIN:VCARD', 'VERSION:3.0',
+    `FN:${alumni.name}`, `N:${alumni.name};;;`,
     alumni.phone ? `TEL;TYPE=CELL:${alumni.phone}` : '',
     alumni.company ? `ORG:${alumni.company}` : '',
     alumni.job_title ? `TITLE:${alumni.job_title}` : '',
@@ -46,9 +47,7 @@ function saveContact(alumni: AlumniDetail) {
   const blob = new Blob([vcard], { type: 'text/vcard;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url;
-  a.download = `${alumni.name}.vcf`;
-  a.click();
+  a.href = url; a.download = `${alumni.name}.vcf`; a.click();
   URL.revokeObjectURL(url);
 }
 
@@ -70,15 +69,16 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
 
   const [form, setForm] = useState({
     company: '', job_title: '', region: '', address: '', bio: '', phone: '',
-    photo_url: '', card_image_url: '',
+    photo_url: '', card_image_url: '', organization: '한국농어촌공사',
   });
 
   const fetchData = async () => {
     const { data } = await supabase
       .from('alumni_master')
-      .select('id, name, phone, email, admission_year, graduation_year, department_name, alumni_profiles (id, company, job_title, region, address, bio, photo_url, card_image_url)')
+      .select('id, name, phone, email, admission_year, graduation_year, department_name, organization, alumni_profiles (id, company, job_title, region, address, bio, photo_url, card_image_url)')
       .eq('id', id)
       .single();
+
     if (data) {
       const p = (data as any).alumni_profiles?.[0];
       const detail: AlumniDetail = {
@@ -91,6 +91,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
         region: p?.region, address: p?.address,
         bio: p?.bio, photo_url: p?.photo_url,
         card_image_url: p?.card_image_url, profile_id: p?.id,
+        organization: (data as any).organization || '한국농어촌공사',
       };
       setAlumni(detail);
       setForm({
@@ -98,6 +99,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
         region: p?.region || '', address: p?.address || '',
         bio: p?.bio || '', phone: data.phone || '',
         photo_url: p?.photo_url || '', card_image_url: p?.card_image_url || '',
+        organization: (data as any).organization || '한국농어촌공사',
       });
     }
     setLoading(false);
@@ -135,7 +137,12 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
 
   const handleSave = async () => {
     setSaving(true);
-    await supabase.from('alumni_master').update({ phone: form.phone || null }).eq('id', id);
+    // alumni_master 업데이트 (phone + organization)
+    await supabase.from('alumni_master').update({
+      phone: form.phone || null,
+      organization: form.organization,
+    }).eq('id', id);
+
     if (alumni?.profile_id) {
       await supabase.from('alumni_profiles').update({
         company: form.company || null, job_title: form.job_title || null,
@@ -180,8 +187,10 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
   );
 
   const bar = <div style={{ width:4, height:16, background:'#1B3F7B', borderRadius:2 }} />;
+  const org = alumni.organization || '한국농어촌공사';
+
   const fieldRows = [
-    { label:'회사명', key:'company', placeholder:'한국농어촌공사' },
+    { label:'회사명', key:'company', placeholder:'한국농어촌공사 충청지역본부' },
     { label:'직무/직책', key:'job_title', placeholder:'과장' },
     { label:'지역', key:'region', placeholder:'충남' },
     { label:'주소 (지도 표시용)', key:'address', placeholder:'대전광역시 서구 대덕대로 290번길 27' },
@@ -204,13 +213,15 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
           </button>
         </div>
 
-        {/* 프로필 사진 + 이름 */}
+        {/* 프로필 사진 */}
         <div style={{ display:'flex', flexDirection:'column', alignItems:'center', padding:'8px 16px 20px' }}>
           <div style={{ position:'relative', marginBottom:14 }}>
             <div style={{ width:96, height:96, borderRadius:20, background:avatarColor(alumni.name), border:'3px solid rgba(255,255,255,0.4)', overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 4px 16px rgba(0,0,0,0.3)' }}>
-              {(editMode ? form.photo_url : alumni.photo_url)
-                ? <img src={editMode ? form.photo_url : alumni.photo_url!} alt={alumni.name} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
-                : <span style={{ color:'#fff', fontSize:38, fontWeight:800 }}>{alumni.name.charAt(0)}</span>}
+              {(editMode ? form.photo_url : alumni.photo_url) ? (
+                <img src={editMode ? form.photo_url : alumni.photo_url!} alt={alumni.name} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+              ) : (
+                <span style={{ color:'#fff', fontSize:38, fontWeight:800 }}>{alumni.name.charAt(0)}</span>
+              )}
             </div>
             {editMode && (
               <button onClick={() => photoRef.current?.click()} disabled={uploadingPhoto}
@@ -237,6 +248,14 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
               {alumni.department}
             </span>
           )}
+          {/* 기관 뱃지 */}
+          <span style={{ display:'flex', alignItems:'center', gap:4, background:'rgba(255,255,255,0.15)', color:'#fff', fontSize:11, padding:'4px 10px', borderRadius:20, border:'1px solid rgba(255,255,255,0.2)' }}>
+            {org === '한국농어촌공사' && <img src="/krc-logo.jpg" alt="KRC" style={{ height:12, width:'auto' }} />}
+            {org === '충남도청' && '🏛'}
+            {org === '세종시' && '🌿'}
+            {org === '충청시군' && '🏙'}
+            {org}
+          </span>
         </div>
       </div>
 
@@ -248,51 +267,42 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
           </div>
         )}
 
-        {/* ── 연락처 저장 버튼 (항상 표시, 전화번호 있을 때) ── */}
-        {!editMode && alumni.phone && (
-          <button onClick={handleSaveContact}
-            style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'center', gap:8, padding:'14px', background: contactSaved ? 'linear-gradient(135deg,#16a34a,#15803d)' : 'linear-gradient(135deg,#0d2d6e,#1B3F7B)', border:'none', borderRadius:16, color:'#fff', fontSize:15, fontWeight:700, cursor:'pointer', fontFamily:'inherit', marginBottom:10, boxShadow:'0 4px 14px rgba(13,45,110,0.3)', transition:'all 0.2s' }}>
-            {contactSaved ? (
-              <>
-                <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
-                연락처 저장 완료!
-              </>
-            ) : (
-              <>
-                <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
-                  <line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/>
-                </svg>
-                📱 {alumni.name} 연락처 저장하기
-              </>
-            )}
-          </button>
-        )}
-
-        {/* ── 전화 / 문자 / 메일 버튼 ── */}
+        {/* ── 연락처 저장 + 연락 버튼 ── */}
         {!editMode && (alumni.phone || alumni.email) && (
-          <div style={{ display:'flex', gap:8, marginBottom:10 }}>
+          <div style={{ background:'#fff', borderRadius:16, padding:'14px 16px', marginBottom:10, boxShadow:'0 1px 4px rgba(13,45,110,0.07)', border:'1px solid #e2e8f0' }}>
             {alumni.phone && (
-              <a href={'tel:' + alumni.phone}
-                style={{ flex:1, background:'#fff', border:'1px solid #e2e8f0', color:'#1B3F7B', borderRadius:12, padding:'12px 8px', textAlign:'center', fontSize:13, fontWeight:700, textDecoration:'none', display:'flex', flexDirection:'column', alignItems:'center', gap:4, boxShadow:'0 1px 4px rgba(13,45,110,0.07)' }}>
-                <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-                전화
-              </a>
+              <button onClick={handleSaveContact}
+                style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'center', gap:8, padding:'12px', background: contactSaved ? 'linear-gradient(135deg,#16a34a,#15803d)' : 'linear-gradient(135deg,#0d2d6e,#1B3F7B)', border:'none', borderRadius:12, color:'#fff', fontSize:14, fontWeight:700, cursor:'pointer', fontFamily:'inherit', marginBottom:10, boxShadow:'0 3px 10px rgba(13,45,110,0.25)', transition:'all 0.2s' }}>
+                {contactSaved ? (
+                  <><svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>연락처 저장 완료!</>
+                ) : (
+                  <><svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>연락처 저장하기</>
+                )}
+              </button>
             )}
-            {alumni.phone && (
-              <a href={'sms:' + alumni.phone}
-                style={{ flex:1, background:'#fff', border:'1px solid #e2e8f0', color:'#475569', borderRadius:12, padding:'12px 8px', textAlign:'center', fontSize:13, fontWeight:700, textDecoration:'none', display:'flex', flexDirection:'column', alignItems:'center', gap:4, boxShadow:'0 1px 4px rgba(13,45,110,0.07)' }}>
-                <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                문자
-              </a>
-            )}
-            {alumni.email && (
-              <a href={'mailto:' + alumni.email}
-                style={{ flex:1, background:'#fff', border:'1px solid #e2e8f0', color:'#475569', borderRadius:12, padding:'12px 8px', textAlign:'center', fontSize:13, fontWeight:700, textDecoration:'none', display:'flex', flexDirection:'column', alignItems:'center', gap:4, boxShadow:'0 1px 4px rgba(13,45,110,0.07)' }}>
-                <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-                메일
-              </a>
-            )}
+            <div style={{ display:'flex', gap:8 }}>
+              {alumni.phone && (
+                <a href={'tel:' + alumni.phone}
+                  style={{ flex:1, background:'#eff6ff', color:'#1B3F7B', borderRadius:10, padding:'10px', textAlign:'center', fontSize:13, fontWeight:700, textDecoration:'none', display:'flex', flexDirection:'column', alignItems:'center', gap:3 }}>
+                  <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                  전화
+                </a>
+              )}
+              {alumni.phone && (
+                <a href={'sms:' + alumni.phone}
+                  style={{ flex:1, background:'#f8fafc', color:'#475569', borderRadius:10, padding:'10px', textAlign:'center', fontSize:13, fontWeight:700, textDecoration:'none', display:'flex', flexDirection:'column', alignItems:'center', gap:3 }}>
+                  <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                  문자
+                </a>
+              )}
+              {alumni.email && (
+                <a href={'mailto:' + alumni.email}
+                  style={{ flex:1, background:'#f8fafc', color:'#475569', borderRadius:10, padding:'10px', textAlign:'center', fontSize:13, fontWeight:700, textDecoration:'none', display:'flex', flexDirection:'column', alignItems:'center', gap:3 }}>
+                  <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                  메일
+                </a>
+              )}
+            </div>
           </div>
         )}
 
@@ -301,6 +311,26 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
           <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12 }}>{bar}<span style={{ fontSize:11, fontWeight:700, color:'#64748b', letterSpacing:1.5, textTransform:'uppercase' as const }}>소속</span></div>
           {editMode ? (
             <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+
+              {/* 기관 선택 드롭다운 */}
+              <div>
+                <p style={{ fontSize:11, color:'#94a3b8', marginBottom:3 }}>소속 기관</p>
+                <div style={{ position:'relative' }}>
+                  <select
+                    value={form.organization}
+                    onChange={e => setForm(prev => ({ ...prev, organization: e.target.value }))}
+                    style={{ width:'100%', padding:'9px 36px 9px 12px', border:'1.5px solid #e2e8f0', borderRadius:10, fontSize:13, outline:'none', fontFamily:'inherit', appearance:'none', WebkitAppearance:'none', background:'#fff', color:'#0f172a', cursor:'pointer' } as React.CSSProperties}>
+                    {ORG_LIST.map(o => (
+                      <option key={o} value={o}>{o}</option>
+                    ))}
+                  </select>
+                  <div style={{ position:'absolute', right:10, top:'50%', transform:'translateY(-50%)', pointerEvents:'none' }}>
+                    <svg width="14" height="14" fill="none" stroke="#94a3b8" strokeWidth="2" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>
+                  </div>
+                </div>
+              </div>
+
+              {/* 나머지 필드 */}
               {fieldRows.map(f => (
                 <div key={f.key}>
                   <p style={{ fontSize:11, color:'#94a3b8', marginBottom:3 }}>{f.label}</p>
@@ -311,7 +341,24 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
             </div>
           ) : (
             <>
-              {alumni.company && <InfoRow label="회사" value={alumni.company} />}
+              {/* 기관 표시 */}
+              <div style={{ display:'flex', alignItems:'center', gap:8, padding:'6px 0', borderBottom:'1px solid #f1f5f9' }}>
+                <div style={{ flex:1 }}>
+                  <p style={{ fontSize:10, color:'#94a3b8', marginBottom:2 }}>소속 기관</p>
+                  <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                    {org === '한국농어촌공사' && (
+                      <img src="/krc-logo.jpg" alt="KRC" style={{ height:16, width:'auto', objectFit:'contain' }} />
+                    )}
+                    <p style={{ fontSize:14, fontWeight:600, color:'#0f172a' }}>
+                      {org === '충남도청' && '🏛 '}
+                      {org === '세종시' && '🌿 '}
+                      {org === '충청시군' && '🏙 '}
+                      {org}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              {alumni.company && <InfoRow label="회사/부서" value={alumni.company} />}
               {alumni.job_title && <InfoRow label="직무/직책" value={alumni.job_title} />}
               {alumni.phone && (
                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'6px 0', borderBottom:'1px solid #f1f5f9' }}>
@@ -410,7 +457,10 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
         )}
 
         {editMode && (
-          <button onClick={() => { setEditMode(false); setForm({ company: alumni.company||'', job_title: alumni.job_title||'', region: alumni.region||'', address: alumni.address||'', bio: alumni.bio||'', phone: alumni.phone||'', photo_url: alumni.photo_url||'', card_image_url: alumni.card_image_url||'' }); }}
+          <button onClick={() => {
+            setEditMode(false);
+            setForm({ company: alumni.company||'', job_title: alumni.job_title||'', region: alumni.region||'', address: alumni.address||'', bio: alumni.bio||'', phone: alumni.phone||'', photo_url: alumni.photo_url||'', card_image_url: alumni.card_image_url||'', organization: alumni.organization||'한국농어촌공사' });
+          }}
             style={{ width:'100%', padding:'14px', background:'#f1f5f9', border:'none', borderRadius:12, fontSize:14, fontWeight:600, color:'#64748b', cursor:'pointer', marginBottom:10, fontFamily:'inherit' }}>
             취소
           </button>
