@@ -452,8 +452,8 @@ export default function DirectoryPage() {
                   {/* ── 소속기관 로고 + 텍스트 ── */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
                     {org === '한국농어촌공사' ? (
-                      <img src="/krc-logo.jpg" alt="KRC"
-                        style={{ height: 14, width: 'auto', objectFit: 'contain' }} />
+                      <img src="/logos/krc.png" alt="KRC"
+                        style={{ height: 16, width: 'auto', objectFit: 'contain' }} />
                     ) : (
                       <>
                         {ORG_LOGO[org] && (
