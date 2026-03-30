@@ -131,6 +131,7 @@ export default function DirectoryPage() {
         .from('alumni_master')
         .select('id, name, phone, email, admission_year, graduation_year, department_name, auth_status, organization, alumni_profiles (company, job_title, region, photo_url)')
         .eq('auth_status', 'active')
+        .neq('name', '000')
         .order('admission_year', { ascending: true });
       if (error) console.error('Fetch error:', error);
       setAlumni((data || []).map((a: any) => ({

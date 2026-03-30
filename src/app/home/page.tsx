@@ -147,7 +147,7 @@ export default function HomePage() {
         <div style={{ padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ background: '#fff', borderRadius: 8, padding: '4px 10px', height: 32, display: 'flex', alignItems: 'center' }}>
-              <img src="/krc.png" alt="KRC" style={{ height: 22, width: 'auto', objectFit: 'contain' }} />
+              <img src="/krc-logo.jpg" alt="KRC" style={{ height: 22, width: 'auto', objectFit: 'contain' }} />
             </div>
           </div>
           {/* 공유 + 설치 버튼 */}
