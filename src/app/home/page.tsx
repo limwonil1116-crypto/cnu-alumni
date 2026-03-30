@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
+import TopButtons from '@/components/TopButtons';
 
 const ADMIN_NAME = '임원일';
 
@@ -26,15 +27,11 @@ export default function HomePage() {
   const [showWrite, setShowWrite] = useState(false);
   const [myEmail, setMyEmail] = useState('');
   const [myName, setMyName] = useState('');
-
-  // 글쓰기 폼
   const [writeTitle, setWriteTitle] = useState('');
   const [writeContent, setWriteContent] = useState('');
   const [writeImages, setWriteImages] = useState<File[]>([]);
   const [writeImagePreviews, setWriteImagePreviews] = useState<string[]>([]);
   const [writeLoading, setWriteLoading] = useState(false);
-
-  // 수정 폼
   const [editingPost, setEditingPost] = useState<Post | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [editContent, setEditContent] = useState('');
@@ -57,15 +54,8 @@ export default function HomePage() {
 
   const fetchPosts = async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from('notices')
-      .select('*')
-      .order('created_at', { ascending: false });
-    setPosts((data || []).map((d: any) => ({
-      ...d,
-      images: d.images || [],
-      type: d.type || 'notice',
-    })));
+    const { data } = await supabase.from('notices').select('*').order('created_at', { ascending: false });
+    setPosts((data || []).map((d: any) => ({ ...d, images: d.images || [], type: d.type || 'notice' })));
     setLoading(false);
   };
 
@@ -73,10 +63,7 @@ export default function HomePage() {
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    if (files.length + writeImages.length > 5) {
-      alert('사진은 최대 5장까지 첨부 가능합니다');
-      return;
-    }
+    if (files.length + writeImages.length > 5) { alert('사진은 최대 5장까지 첨부 가능합니다'); return; }
     const newFiles = [...writeImages, ...files];
     setWriteImages(newFiles);
     setWriteImagePreviews(newFiles.map(f => URL.createObjectURL(f)));
@@ -101,60 +88,39 @@ export default function HomePage() {
     return urls;
   };
 
-  // 글 작성
   const handleSubmit = async () => {
     if (!writeTitle.trim()) { alert('제목을 입력해주세요'); return; }
     setWriteLoading(true);
     const imageUrls = writeImages.length > 0 ? await uploadImages(writeImages) : [];
     const { error } = await supabase.from('notices').insert({
-      title: writeTitle.trim(),
-      content: writeContent.trim(),
-      author: myName || '익명',
-      author_email: myEmail,
-      images: imageUrls,
-      type: tab,
+      title: writeTitle.trim(), content: writeContent.trim(),
+      author: myName || '익명', author_email: myEmail,
+      images: imageUrls, type: tab,
     });
-    if (error) {
-      alert('등록 실패: ' + error.message);
-    } else {
+    if (error) { alert('등록 실패: ' + error.message); }
+    else {
       setWriteTitle(''); setWriteContent('');
       setWriteImages([]); setWriteImagePreviews([]);
-      setShowWrite(false);
-      await fetchPosts();
+      setShowWrite(false); await fetchPosts();
     }
     setWriteLoading(false);
   };
 
-  // 수정 시작
   const handleEditStart = (post: Post) => {
-    setEditingPost(post);
-    setEditTitle(post.title);
-    setEditContent(post.content || '');
-    setExpandedId(null);
+    setEditingPost(post); setEditTitle(post.title);
+    setEditContent(post.content || ''); setExpandedId(null);
   };
 
-  // 수정 저장
   const handleEditSave = async () => {
     if (!editingPost) return;
     if (!editTitle.trim()) { alert('제목을 입력해주세요'); return; }
     setEditLoading(true);
-    const { error } = await supabase
-      .from('notices')
-      .update({
-        title: editTitle.trim(),
-        content: editContent.trim(),
-      })
-      .eq('id', editingPost.id);
-    if (error) {
-      alert('수정 실패: ' + error.message);
-    } else {
-      setEditingPost(null);
-      await fetchPosts();
-    }
+    const { error } = await supabase.from('notices').update({ title: editTitle.trim(), content: editContent.trim() }).eq('id', editingPost.id);
+    if (error) { alert('수정 실패: ' + error.message); }
+    else { setEditingPost(null); await fetchPosts(); }
     setEditLoading(false);
   };
 
-  // 삭제
   const handleDelete = async (post: Post) => {
     const canDel = post.author_email === myEmail || myName === ADMIN_NAME;
     if (!canDel) { alert('본인 또는 관리자만 삭제할 수 있습니다'); return; }
@@ -181,17 +147,19 @@ export default function HomePage() {
         <div style={{ padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ background: '#fff', borderRadius: 8, padding: '4px 10px', height: 32, display: 'flex', alignItems: 'center' }}>
-              <img src="/krc-logo.jpg" alt="KRC" style={{ height: 22, width: 'auto', objectFit: 'contain' }} />
+              <img src="/krc.png" alt="KRC" style={{ height: 22, width: 'auto', objectFit: 'contain' }} />
             </div>
           </div>
-          <Link href="/mypage" style={{ width: 34, height: 34, borderRadius: '50%', background: 'rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', border: '1px solid rgba(255,255,255,0.2)' }}>
+          {/* 공유 + 설치 버튼 */}
+          <TopButtons />
+        </div>
+        <div style={{ padding: '12px 16px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <h1 style={{ color: '#fff', fontSize: 20, fontWeight: 800, marginBottom: 14 }}>충남대학교 백마회</h1>
+          <Link href="/mypage" style={{ width: 34, height: 34, borderRadius: '50%', background: 'rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', border: '1px solid rgba(255,255,255,0.2)', marginBottom: 14 }}>
             <svg width="16" height="16" fill="none" stroke="#fff" strokeWidth="2" viewBox="0 0 24 24">
               <circle cx="12" cy="8" r="4" /><path d="M20 21a8 8 0 1 0-16 0" />
             </svg>
           </Link>
-        </div>
-        <div style={{ padding: '12px 16px 0' }}>
-          <h1 style={{ color: '#fff', fontSize: 20, fontWeight: 800, marginBottom: 14 }}>충남대학교 백마회</h1>
         </div>
         <div style={{ display: 'flex', padding: '0 16px' }}>
           {(['notice', 'board'] as const).map(t => (
@@ -206,24 +174,21 @@ export default function HomePage() {
       {/* ── 콘텐츠 ── */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '14px 14px 100px' }}>
 
-        {/* 글쓰기 버튼 */}
         <button onClick={() => { setShowWrite(!showWrite); setEditingPost(null); }}
           style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: '#fff', border: '1px dashed #cbd5e1', borderRadius: 14, padding: '11px', marginBottom: 12, fontSize: 13, color: '#64748b', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}>
           ✏️ {tab === 'notice' ? '공지사항' : '게시글'} 작성하기
         </button>
 
-        {/* ── 글쓰기 폼 ── */}
+        {/* 글쓰기 폼 */}
         {showWrite && !editingPost && (
           <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #e2e8f0', padding: '18px 16px', marginBottom: 12, boxShadow: '0 2px 8px rgba(13,45,110,0.08)' }}>
             <p style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
               {tab === 'notice' ? '📢 공지사항 작성' : '💬 게시글 작성'}
               <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 400 }}>작성자: {myName || myEmail}</span>
             </p>
-            <input value={writeTitle} onChange={e => setWriteTitle(e.target.value)}
-              placeholder="제목을 입력하세요 *"
+            <input value={writeTitle} onChange={e => setWriteTitle(e.target.value)} placeholder="제목을 입력하세요 *"
               style={{ width: '100%', border: '1px solid #e2e8f0', borderRadius: 10, padding: '10px 12px', fontSize: 13, marginBottom: 8, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' as const }} />
-            <textarea value={writeContent} onChange={e => setWriteContent(e.target.value)}
-              placeholder="내용을 입력하세요" rows={4}
+            <textarea value={writeContent} onChange={e => setWriteContent(e.target.value)} placeholder="내용을 입력하세요" rows={4}
               style={{ width: '100%', border: '1px solid #e2e8f0', borderRadius: 10, padding: '10px 12px', fontSize: 13, marginBottom: 10, outline: 'none', fontFamily: 'inherit', resize: 'none', boxSizing: 'border-box' as const }} />
             <div style={{ marginBottom: 12 }}>
               <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: '8px 14px', fontSize: 12, color: '#475569', cursor: 'pointer', fontWeight: 600 }}>
@@ -244,9 +209,7 @@ export default function HomePage() {
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
               <button onClick={() => { setShowWrite(false); setWriteTitle(''); setWriteContent(''); setWriteImages([]); setWriteImagePreviews([]); }}
-                style={{ flex: 1, padding: '11px', background: '#f1f5f9', border: 'none', borderRadius: 10, fontSize: 13, color: '#64748b', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}>
-                취소
-              </button>
+                style={{ flex: 1, padding: '11px', background: '#f1f5f9', border: 'none', borderRadius: 10, fontSize: 13, color: '#64748b', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}>취소</button>
               <button onClick={handleSubmit} disabled={writeLoading}
                 style={{ flex: 2, padding: '11px', background: 'linear-gradient(135deg, #0d2d6e, #1B3F7B)', border: 'none', borderRadius: 10, fontSize: 13, color: '#fff', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
                 {writeLoading ? <span style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.3)', borderTop: '2px solid #fff', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite' }} /> : '등록하기'}
@@ -255,20 +218,14 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* ── 수정 폼 ── */}
+        {/* 수정 폼 */}
         {editingPost && (
           <div style={{ background: '#fff', borderRadius: 16, border: '2px solid #1B3F7B', padding: '18px 16px', marginBottom: 12, boxShadow: '0 2px 12px rgba(13,45,110,0.15)' }}>
-            <p style={{ fontSize: 14, fontWeight: 700, color: '#1B3F7B', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
-              ✏️ 게시글 수정
-              <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 400 }}>작성자: {editingPost.author}</span>
-            </p>
-            <input value={editTitle} onChange={e => setEditTitle(e.target.value)}
-              placeholder="제목을 입력하세요 *"
+            <p style={{ fontSize: 14, fontWeight: 700, color: '#1B3F7B', marginBottom: 14 }}>✏️ 게시글 수정</p>
+            <input value={editTitle} onChange={e => setEditTitle(e.target.value)} placeholder="제목을 입력하세요 *"
               style={{ width: '100%', border: '1px solid #e2e8f0', borderRadius: 10, padding: '10px 12px', fontSize: 13, marginBottom: 8, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' as const }} />
-            <textarea value={editContent} onChange={e => setEditContent(e.target.value)}
-              placeholder="내용을 입력하세요" rows={4}
+            <textarea value={editContent} onChange={e => setEditContent(e.target.value)} placeholder="내용을 입력하세요" rows={4}
               style={{ width: '100%', border: '1px solid #e2e8f0', borderRadius: 10, padding: '10px 12px', fontSize: 13, marginBottom: 10, outline: 'none', fontFamily: 'inherit', resize: 'none', boxSizing: 'border-box' as const }} />
-            {/* 기존 이미지 미리보기 */}
             {editingPost.images && editingPost.images.length > 0 && (
               <div style={{ marginBottom: 10 }}>
                 <p style={{ fontSize: 11, color: '#94a3b8', marginBottom: 6 }}>기존 첨부 사진</p>
@@ -281,9 +238,7 @@ export default function HomePage() {
             )}
             <div style={{ display: 'flex', gap: 8 }}>
               <button onClick={() => setEditingPost(null)}
-                style={{ flex: 1, padding: '11px', background: '#f1f5f9', border: 'none', borderRadius: 10, fontSize: 13, color: '#64748b', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}>
-                취소
-              </button>
+                style={{ flex: 1, padding: '11px', background: '#f1f5f9', border: 'none', borderRadius: 10, fontSize: 13, color: '#64748b', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}>취소</button>
               <button onClick={handleEditSave} disabled={editLoading}
                 style={{ flex: 2, padding: '11px', background: 'linear-gradient(135deg, #0d2d6e, #1B3F7B)', border: 'none', borderRadius: 10, fontSize: 13, color: '#fff', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
                 {editLoading ? <span style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.3)', borderTop: '2px solid #fff', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite' }} /> : '💾 변경사항 저장'}
@@ -292,7 +247,7 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* ── 게시글 목록 ── */}
+        {/* 게시글 목록 */}
         {filteredPosts.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '60px 0' }}>
             <p style={{ fontSize: 40, marginBottom: 10 }}>{tab === 'notice' ? '📭' : '💬'}</p>
@@ -300,8 +255,6 @@ export default function HomePage() {
           </div>
         ) : filteredPosts.map(post => (
           <div key={post.id} style={{ background: '#fff', borderRadius: 16, marginBottom: 10, border: '1px solid #e2e8f0', boxShadow: '0 1px 4px rgba(13,45,110,0.07)', overflow: 'hidden' }}>
-
-            {/* 게시글 헤더 */}
             <button onClick={() => setExpandedId(expandedId === post.id ? null : post.id)}
               style={{ width: '100%', padding: '14px 16px', background: 'none', border: 'none', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}>
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -310,9 +263,7 @@ export default function HomePage() {
                     {tab === 'notice' ? '공지' : '게시'}
                   </span>
                   {post.images && post.images.length > 0 && (
-                    <span style={{ fontSize: 10, background: '#f0fdf4', color: '#16a34a', padding: '2px 7px', borderRadius: 6, fontWeight: 600, border: '1px solid #bbf7d0' }}>
-                      📷 {post.images.length}
-                    </span>
+                    <span style={{ fontSize: 10, background: '#f0fdf4', color: '#16a34a', padding: '2px 7px', borderRadius: 6, fontWeight: 600, border: '1px solid #bbf7d0' }}>📷 {post.images.length}</span>
                   )}
                 </div>
                 <p style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 8 }}>{post.title}</p>
@@ -323,13 +274,9 @@ export default function HomePage() {
                 <path d="m6 9 6 6 6-6" />
               </svg>
             </button>
-
-            {/* 게시글 상세 */}
             {expandedId === post.id && (
               <div style={{ borderTop: '1px solid #f1f5f9', padding: '14px 16px' }}>
-                {post.content && (
-                  <p style={{ fontSize: 13, color: '#475569', lineHeight: 1.8, marginBottom: 12, whiteSpace: 'pre-wrap' }}>{post.content}</p>
-                )}
+                {post.content && <p style={{ fontSize: 13, color: '#475569', lineHeight: 1.8, marginBottom: 12, whiteSpace: 'pre-wrap' }}>{post.content}</p>}
                 {post.images && post.images.length > 0 && (
                   <div style={{ marginBottom: 12 }}>
                     <p style={{ fontSize: 11, color: '#94a3b8', marginBottom: 8, fontWeight: 600 }}>첨부 사진 {post.images.length}장</p>
@@ -342,19 +289,13 @@ export default function HomePage() {
                     </div>
                   </div>
                 )}
-
-                {/* 수정/삭제 버튼 */}
                 {canEdit(post) && (
                   <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 8 }}>
                     <button onClick={() => handleEditStart(post)}
-                      style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: '5px 14px', fontSize: 12, color: '#1B3F7B', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}>
-                      ✏️ 수정
-                    </button>
+                      style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: '5px 14px', fontSize: 12, color: '#1B3F7B', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}>✏️ 수정</button>
                     {canDelete(post) && (
                       <button onClick={() => handleDelete(post)}
-                        style={{ background: 'none', border: '1px solid #fca5a5', borderRadius: 8, padding: '5px 14px', fontSize: 12, color: '#ef4444', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}>
-                        🗑 삭제
-                      </button>
+                        style={{ background: 'none', border: '1px solid #fca5a5', borderRadius: 8, padding: '5px 14px', fontSize: 12, color: '#ef4444', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}>🗑 삭제</button>
                     )}
                   </div>
                 )}
@@ -364,7 +305,7 @@ export default function HomePage() {
         ))}
       </div>
 
-      {/* ── 동문 확인하기 버튼 ── */}
+      {/* 동문 확인하기 버튼 */}
       <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 40, background: 'linear-gradient(to top, #f0f4f8 70%, transparent)', padding: '12px 16px 20px' }}>
         <Link href="/directory"
           style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', minHeight: 54, background: 'linear-gradient(135deg, #0d2d6e, #1B3F7B)', color: '#fff', borderRadius: 16, fontSize: 15, fontWeight: 700, textDecoration: 'none', boxShadow: '0 4px 20px rgba(13,45,110,0.35)' }}>

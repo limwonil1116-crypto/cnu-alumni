@@ -19,11 +19,10 @@ interface Alumni {
 }
 
 const ORG_GROUPS = [
-  { label: '한국농어촌공사', emoji: '', orgs: ['한국농어촌공사'] },
+  { label: '한국농어촌공사', orgs: ['한국농어촌공사'] },
   {
-    label: '외부기관', emoji: '🏛',
-    orgs: [
-      '농림축산식품부', '충남도청',
+    label: '외부기관', orgs: [
+      '농림축산식품부', '충남도청', '세종특별자치시', '대전광역시',
       '천안시', '공주시', '보령시', '아산시', '서산시',
       '논산시', '계룡시', '당진시',
       '금산군', '부여군', '서천군', '청양군', '홍성군', '예산군', '태안군',
@@ -31,10 +30,35 @@ const ORG_GROUPS = [
   },
 ];
 
+const ORG_LOGO: Record<string, string> = {
+  '한국농어촌공사':  '/logos/krc.png',
+  '농림축산식품부':  '/logos/mafra.png',
+  '충남도청':        '/logos/chungnam.png',
+  '세종특별자치시':  '/logos/sejong.png',
+  '대전광역시':      '/logos/daejeon.png',
+  '천안시':          '/logos/cheonan.png',
+  '공주시':          '/logos/gongju.png',
+  '보령시':          '/logos/boryeong.png',
+  '아산시':          '/logos/asan.png',
+  '서산시':          '/logos/seosan.png',
+  '논산시':          '/logos/nonsan.png',
+  '계룡시':          '/logos/gyeryong.png',
+  '당진시':          '/logos/dangjin.png',
+  '금산군':          '/logos/geumsan.png',
+  '부여군':          '/logos/buyeo.png',
+  '서천군':          '/logos/seocheon.png',
+  '청양군':          '/logos/cheongyang.png',
+  '홍성군':          '/logos/hongseong.png',
+  '예산군':          '/logos/yesan.png',
+  '태안군':          '/logos/taean.png',
+};
+
 const ORG_INFO: Record<string, { color: string; bg: string; emoji?: string }> = {
   '한국농어촌공사':  { color: '#1B3F7B', bg: '#eff6ff' },
   '농림축산식품부':  { color: '#3b1f0a', bg: '#fefce8', emoji: '🌾' },
   '충남도청':        { color: '#065f46', bg: '#f0fdf4', emoji: '🏛' },
+  '세종특별자치시':  { color: '#0c4a6e', bg: '#f0f9ff', emoji: '🌿' },
+  '대전광역시':      { color: '#1e3a5f', bg: '#eff6ff', emoji: '🌆' },
   '천안시':  { color: '#1e40af', bg: '#eff6ff', emoji: '🏙' },
   '공주시':  { color: '#4a044e', bg: '#fdf4ff', emoji: '🏙' },
   '보령시':  { color: '#0c4a6e', bg: '#f0f9ff', emoji: '🏙' },
@@ -66,7 +90,7 @@ const DEPT_COLORS: Record<string, [string, string]> = {
   '미생물분자생명과학과': ['#1a1a2e', '#7c3aed'],
   '바이오시스템기계공학과': ['#0d3d2e', '#059669'],
   '지질학과':     ['#422006', '#d97706'],
-  '지역환경토목학과(농공학과)': ['#0f2942', '#1d4ed8'],
+  '지역환경토목학과': ['#0f2942', '#1d4ed8'],
   '토목공학과':   ['#0f2942', '#1d4ed8'],
   '행정학과':     ['#2d1b69', '#6d28d9'],
   '조선학과':     ['#0c3547', '#0369a1'],
@@ -125,13 +149,12 @@ export default function DirectoryPage() {
     init();
   }, [router]);
 
-  const allOrgs = ['전체', '한국농어촌공사', '외부기관'];
+  const extOrgs = ORG_GROUPS.find(g => g.label === '외부기관')!.orgs;
 
-  const currentGroupOrgs = useMemo(() => {
-    if (activeGroup === '전체') return [];
-    const g = ORG_GROUPS.find(g => g.label === activeGroup);
-    return g ? g.orgs : [];
-  }, [activeGroup]);
+  const extOrgList = useMemo(() => {
+    const inData = extOrgs.filter(o => alumni.some(a => a.organization === o));
+    return ['전체', ...inData];
+  }, [alumni]);
 
   const filtered = useMemo(() => {
     const q = query.toLowerCase();
@@ -140,31 +163,17 @@ export default function DirectoryPage() {
       const matchQ = !q || a.name.includes(q) || (a.department || '').includes(q) || (a.company || '').toLowerCase().includes(q) || String(a.admission_year || '').includes(q) || org.includes(q);
       let matchGroup = true;
       if (activeGroup === '한국농어촌공사') matchGroup = org === '한국농어촌공사';
-      if (activeGroup === '외부기관') {
-        const extOrgs = ORG_GROUPS.find(g => g.label === '외부기관')!.orgs;
-        matchGroup = extOrgs.includes(org);
-      }
+      if (activeGroup === '외부기관') matchGroup = extOrgs.includes(org);
       const matchOrg = activeOrg === '전체' || org === activeOrg;
       const matchDept = activeDept === '전체' || a.department === activeDept;
       return matchQ && matchGroup && matchOrg && matchDept;
     });
   }, [query, alumni, activeGroup, activeOrg, activeDept]);
 
-  // 외부기관 세부 기관 목록
-  const extOrgList = useMemo(() => {
-    const extOrgs = ORG_GROUPS.find(g => g.label === '외부기관')!.orgs;
-    const inData = extOrgs.filter(o => alumni.some(a => a.organization === o));
-    return ['전체', ...inData];
-  }, [alumni]);
-
-  // 학과 목록
   const deptList = useMemo(() => {
     let base = alumni;
     if (activeGroup === '한국농어촌공사') base = base.filter(a => (a.organization || '한국농어촌공사') === '한국농어촌공사');
-    if (activeGroup === '외부기관') {
-      const extOrgs = ORG_GROUPS.find(g => g.label === '외부기관')!.orgs;
-      base = base.filter(a => extOrgs.includes(a.organization || ''));
-    }
+    if (activeGroup === '외부기관') base = base.filter(a => extOrgs.includes(a.organization || ''));
     if (activeOrg !== '전체') base = base.filter(a => a.organization === activeOrg);
     return ['전체', ...Array.from(new Set(base.map(a => a.department).filter(Boolean))).sort()];
   }, [alumni, activeGroup, activeOrg]);
@@ -221,9 +230,11 @@ export default function DirectoryPage() {
         <div style={{ padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ background: '#fff', borderRadius: 8, padding: '4px 10px', height: 32, display: 'flex', alignItems: 'center' }}>
-              <img src="/krc-logo.jpg" alt="KRC" style={{ height: 22, width: 'auto', objectFit: 'contain' }} />
+              <img src="/logos/krc.png" alt="KRC"
+                onError={e => { (e.target as HTMLImageElement).src = '/krc-logo.jpg'; }}
+                style={{ height: 22, width: 'auto', objectFit: 'contain' }} />
             </div>
-            <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11 }}>한국농어촌공사</span>
+            <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11 }}></span>
           </div>
           <TopButtons />
         </div>
@@ -259,25 +270,21 @@ export default function DirectoryPage() {
           </div>
         </div>
 
-        {/* ── 대분류: 전체 / 한국농어촌공사 / 외부기관 ── */}
+        {/* ── 기관 대분류 버튼 ── */}
         <div style={{ padding: '0 16px 8px' }}>
           <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 9, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 6 }}>기관</p>
           <div style={{ display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none' } as React.CSSProperties}>
-
-            {/* 전체 버튼 */}
             <button onClick={() => { setActiveGroup('전체'); setActiveOrg('전체'); setActiveDept('전체'); }}
               style={btnBase(activeGroup === '전체')}>
               전체
             </button>
-
-            {/* 한국농어촌공사 버튼 */}
             <button onClick={() => { setActiveGroup('한국농어촌공사'); setActiveOrg('전체'); setActiveDept('전체'); }}
               style={btnBase(activeGroup === '한국농어촌공사')}>
-              <img src="/krc-logo.jpg" style={{ height: 13, width: 'auto', borderRadius: 2 }} />
+              <img src="/logos/krc.png"
+                onError={e => { (e.target as HTMLImageElement).src = '/krc-logo.jpg'; }}
+                style={{ height: 13, width: 'auto' }} />
               한국농어촌공사
             </button>
-
-            {/* 외부기관 버튼 */}
             <button onClick={() => { setActiveGroup('외부기관'); setActiveOrg('전체'); setActiveDept('전체'); }}
               style={btnBase(activeGroup === '외부기관')}>
               🏛 외부기관
@@ -293,15 +300,24 @@ export default function DirectoryPage() {
               {extOrgList.map(org => (
                 <button key={org} onClick={() => { setActiveOrg(org); setActiveDept('전체'); }}
                   style={btnBase(activeOrg === org)}>
-                  {org === '전체' ? '전체' : <>{getOrgEmoji(org) && <span>{getOrgEmoji(org)}</span>}{org}</>}
+                  {org === '전체' ? '전체' : (
+                    <>
+                      {ORG_LOGO[org]
+                        ? <img src={ORG_LOGO[org]} style={{ height: 13, width: 'auto' }}
+                            onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                        : getOrgEmoji(org) && <span>{getOrgEmoji(org)}</span>
+                      }
+                      {org}
+                    </>
+                  )}
                 </button>
               ))}
             </div>
           </div>
         )}
 
-        {/* ── 학과 버튼 (가로 스크롤) ── */}
-        <div style={{ padding: '0 16px 8px' }}>
+        {/* ── 학과 버튼 + 드롭다운 ── */}
+        <div style={{ padding: '0 16px 12px' }}>
           <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 9, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 6 }}>학과</p>
           <div style={{ display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none', marginBottom: 6 } as React.CSSProperties}>
             {deptList.map(dept => (
@@ -311,7 +327,6 @@ export default function DirectoryPage() {
               </button>
             ))}
           </div>
-          {/* 학과 드롭다운 (보조) */}
           <div style={{ position: 'relative' }}>
             <select value={activeDept} onChange={e => setActiveDept(e.target.value)}
               style={{ width: '100%', appearance: 'none', WebkitAppearance: 'none', background: activeDept === '전체' ? 'rgba(255,255,255,0.1)' : '#fff', border: activeDept === '전체' ? '1px solid rgba(255,255,255,0.2)' : '2px solid #fff', borderRadius: 10, padding: '8px 36px 8px 14px', fontSize: 13, color: activeDept === '전체' ? 'rgba(255,255,255,0.7)' : '#1B3F7B', fontWeight: activeDept === '전체' ? 400 : 700, cursor: 'pointer', fontFamily: 'inherit', outline: 'none' } as React.CSSProperties}>
@@ -375,9 +390,14 @@ export default function DirectoryPage() {
                     </p>
                   )}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                    {org === '한국농어촌공사' ? (
-                      <img src="/krc-logo.jpg" alt="KRC" style={{ height: 13, width: 'auto', objectFit: 'contain' }} />
-                    ) : (
+                    {ORG_LOGO[org] ? (
+                      <img src={ORG_LOGO[org]} alt={org} style={{ height: 13, width: 'auto', objectFit: 'contain' }}
+                        onError={e => {
+                          (e.target as HTMLImageElement).style.display = 'none';
+                          (e.target as HTMLImageElement).nextElementSibling?.removeAttribute('style');
+                        }} />
+                    ) : null}
+                    {!ORG_LOGO[org] && (
                       <span style={{ fontSize: 10, background: orgInfo?.bg || '#f8fafc', color: orgInfo?.color || '#64748b', padding: '1px 7px', borderRadius: 10, fontWeight: 600, border: `1px solid ${orgInfo?.color || '#e2e8f0'}30` }}>
                         {getOrgEmoji(org) && getOrgEmoji(org) + ' '}{org}
                       </span>
