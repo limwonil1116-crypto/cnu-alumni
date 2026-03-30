@@ -451,17 +451,24 @@ export default function DirectoryPage() {
                   )}
                   {/* ── 소속기관 로고 + 텍스트 ── */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
-                    {ORG_LOGO[org] && (
-                      <img src={ORG_LOGO[org]} alt={org}
-                        style={{ height: 14, width: 'auto', objectFit: 'contain' }}
-                        onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                    {org === '한국농어촌공사' ? (
+                      <img src="/krc-logo.jpg" alt="KRC"
+                        style={{ height: 14, width: 'auto', objectFit: 'contain' }} />
+                    ) : (
+                      <>
+                        {ORG_LOGO[org] && (
+                          <img src={ORG_LOGO[org]} alt={org}
+                            style={{ height: 14, width: 'auto', objectFit: 'contain' }}
+                            onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                        )}
+                        {!ORG_LOGO[org] && getOrgEmoji(org) && (
+                          <span style={{ fontSize: 11 }}>{getOrgEmoji(org)}</span>
+                        )}
+                        <span style={{ fontSize: 11, color: orgInfo?.color || '#64748b', fontWeight: 600 }}>
+                          {org}
+                        </span>
+                      </>
                     )}
-                    {!ORG_LOGO[org] && getOrgEmoji(org) && (
-                      <span style={{ fontSize: 11 }}>{getOrgEmoji(org)}</span>
-                    )}
-                    <span style={{ fontSize: 11, color: orgInfo?.color || '#64748b', fontWeight: 600 }}>
-                      {org}
-                    </span>
                   </div>
                 </Link>
 
