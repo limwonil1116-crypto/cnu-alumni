@@ -19,24 +19,22 @@ interface Alumni {
 }
 
 const ORG_GROUPS = [
-  { label: '전체', emoji: '🏢', orgs: [] },
-  { label: '공공기관', emoji: '🏛', orgs: ['한국농어촌공사','한국농수산식품유통공사','한국마사회','농촌진흥청','농림축산식품부','축산물품질평가원','농림수산식품교육문화정보원','농협중앙회'] },
-  { label: '광역시도', emoji: '🌆', orgs: ['충남도청','세종특별자치시','대전광역시'] },
-  { label: '시군', emoji: '🏘', orgs: ['천안시','공주시','보령시','아산시','서산시','논산시','계룡시','당진시','금산군','부여군','서천군','청양군','홍성군','예산군','태안군'] },
+  { label: '한국농어촌공사', emoji: '', orgs: ['한국농어촌공사'] },
+  {
+    label: '외부기관', emoji: '🏛',
+    orgs: [
+      '농림축산식품부', '충남도청',
+      '천안시', '공주시', '보령시', '아산시', '서산시',
+      '논산시', '계룡시', '당진시',
+      '금산군', '부여군', '서천군', '청양군', '홍성군', '예산군', '태안군',
+    ],
+  },
 ];
 
 const ORG_INFO: Record<string, { color: string; bg: string; emoji?: string }> = {
-  '한국농어촌공사':            { color: '#1B3F7B', bg: '#eff6ff' },
-  '한국농수산식품유통공사':     { color: '#0369a1', bg: '#f0f9ff', emoji: '🐟' },
-  '한국마사회':                { color: '#7c2d12', bg: '#fff7ed', emoji: '🐎' },
-  '농촌진흥청':                { color: '#14532d', bg: '#f0fdf4', emoji: '🌱' },
-  '농림축산식품부':             { color: '#3b1f0a', bg: '#fefce8', emoji: '🌾' },
-  '축산물품질평가원':           { color: '#b45309', bg: '#fffbeb', emoji: '🥩' },
-  '농림수산식품교육문화정보원':  { color: '#0f766e', bg: '#f0fdfa', emoji: '📚' },
-  '농협중앙회':                { color: '#15803d', bg: '#f0fdf4', emoji: '🌾' },
-  '충남도청':                  { color: '#065f46', bg: '#f0fdf4', emoji: '🏛' },
-  '세종특별자치시':             { color: '#0c4a6e', bg: '#f0f9ff', emoji: '🌿' },
-  '대전광역시':                { color: '#1e3a5f', bg: '#eff6ff', emoji: '🌆' },
+  '한국농어촌공사':  { color: '#1B3F7B', bg: '#eff6ff' },
+  '농림축산식품부':  { color: '#3b1f0a', bg: '#fefce8', emoji: '🌾' },
+  '충남도청':        { color: '#065f46', bg: '#f0fdf4', emoji: '🏛' },
   '천안시':  { color: '#1e40af', bg: '#eff6ff', emoji: '🏙' },
   '공주시':  { color: '#4a044e', bg: '#fdf4ff', emoji: '🏙' },
   '보령시':  { color: '#0c4a6e', bg: '#f0f9ff', emoji: '🏙' },
@@ -68,7 +66,7 @@ const DEPT_COLORS: Record<string, [string, string]> = {
   '미생물분자생명과학과': ['#1a1a2e', '#7c3aed'],
   '바이오시스템기계공학과': ['#0d3d2e', '#059669'],
   '지질학과':     ['#422006', '#d97706'],
-  '지역환경토목학과': ['#0f2942', '#1d4ed8'],
+  '지역환경토목학과(농공학과)': ['#0f2942', '#1d4ed8'],
   '토목공학과':   ['#0f2942', '#1d4ed8'],
   '행정학과':     ['#2d1b69', '#6d28d9'],
   '조선학과':     ['#0c3547', '#0369a1'],
@@ -127,30 +125,49 @@ export default function DirectoryPage() {
     init();
   }, [router]);
 
-  const currentGroup = ORG_GROUPS.find(g => g.label === activeGroup)!;
+  const allOrgs = ['전체', '한국농어촌공사', '외부기관'];
 
-  const orgList = activeGroup === '전체'
-    ? ['전체', ...Array.from(new Set(alumni.map(a => a.organization || '한국농어촌공사')))]
-    : ['전체', ...currentGroup.orgs];
-
-  const deptList = useMemo(() => {
-    let base = alumni;
-    if (activeGroup !== '전체') base = base.filter(a => currentGroup.orgs.includes(a.organization || '한국농어촌공사'));
-    if (activeOrg !== '전체') base = base.filter(a => a.organization === activeOrg);
-    return ['전체', ...Array.from(new Set(base.map(a => a.department).filter(Boolean))).sort()];
-  }, [alumni, activeGroup, activeOrg]);
+  const currentGroupOrgs = useMemo(() => {
+    if (activeGroup === '전체') return [];
+    const g = ORG_GROUPS.find(g => g.label === activeGroup);
+    return g ? g.orgs : [];
+  }, [activeGroup]);
 
   const filtered = useMemo(() => {
     const q = query.toLowerCase();
     return alumni.filter(a => {
       const org = a.organization || '한국농어촌공사';
       const matchQ = !q || a.name.includes(q) || (a.department || '').includes(q) || (a.company || '').toLowerCase().includes(q) || String(a.admission_year || '').includes(q) || org.includes(q);
-      const matchGroup = activeGroup === '전체' || currentGroup.orgs.includes(org);
+      let matchGroup = true;
+      if (activeGroup === '한국농어촌공사') matchGroup = org === '한국농어촌공사';
+      if (activeGroup === '외부기관') {
+        const extOrgs = ORG_GROUPS.find(g => g.label === '외부기관')!.orgs;
+        matchGroup = extOrgs.includes(org);
+      }
       const matchOrg = activeOrg === '전체' || org === activeOrg;
       const matchDept = activeDept === '전체' || a.department === activeDept;
       return matchQ && matchGroup && matchOrg && matchDept;
     });
   }, [query, alumni, activeGroup, activeOrg, activeDept]);
+
+  // 외부기관 세부 기관 목록
+  const extOrgList = useMemo(() => {
+    const extOrgs = ORG_GROUPS.find(g => g.label === '외부기관')!.orgs;
+    const inData = extOrgs.filter(o => alumni.some(a => a.organization === o));
+    return ['전체', ...inData];
+  }, [alumni]);
+
+  // 학과 목록
+  const deptList = useMemo(() => {
+    let base = alumni;
+    if (activeGroup === '한국농어촌공사') base = base.filter(a => (a.organization || '한국농어촌공사') === '한국농어촌공사');
+    if (activeGroup === '외부기관') {
+      const extOrgs = ORG_GROUPS.find(g => g.label === '외부기관')!.orgs;
+      base = base.filter(a => extOrgs.includes(a.organization || ''));
+    }
+    if (activeOrg !== '전체') base = base.filter(a => a.organization === activeOrg);
+    return ['전체', ...Array.from(new Set(base.map(a => a.department).filter(Boolean))).sort()];
+  }, [alumni, activeGroup, activeOrg]);
 
   function saveContact(a: Alumni) {
     const vcard = [
@@ -182,7 +199,7 @@ export default function DirectoryPage() {
     background: active ? '#fff' : 'rgba(255,255,255,0.12)',
     color: active ? '#1B3F7B' : 'rgba(255,255,255,0.85)',
     border: active ? '2px solid #fff' : '1px solid rgba(255,255,255,0.2)',
-    display: 'flex', alignItems: 'center', gap: 4,
+    display: 'flex', alignItems: 'center', gap: 5,
   });
 
   const F = { fontFamily: "'Apple SD Gothic Neo','Noto Sans KR',sans-serif" };
@@ -242,45 +259,62 @@ export default function DirectoryPage() {
           </div>
         </div>
 
-        {/* ── 대분류: 기관 그룹 ── */}
+        {/* ── 대분류: 전체 / 한국농어촌공사 / 외부기관 ── */}
         <div style={{ padding: '0 16px 8px' }}>
-          <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 9, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 6 }}>기관 분류</p>
+          <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 9, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 6 }}>기관</p>
           <div style={{ display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none' } as React.CSSProperties}>
-            {ORG_GROUPS.map(g => (
-              <button key={g.label} onClick={() => { setActiveGroup(g.label); setActiveOrg('전체'); setActiveDept('전체'); }}
-                style={btnBase(activeGroup === g.label)}>
-                <span>{g.emoji}</span>{g.label}
-              </button>
-            ))}
+
+            {/* 전체 버튼 */}
+            <button onClick={() => { setActiveGroup('전체'); setActiveOrg('전체'); setActiveDept('전체'); }}
+              style={btnBase(activeGroup === '전체')}>
+              전체
+            </button>
+
+            {/* 한국농어촌공사 버튼 */}
+            <button onClick={() => { setActiveGroup('한국농어촌공사'); setActiveOrg('전체'); setActiveDept('전체'); }}
+              style={btnBase(activeGroup === '한국농어촌공사')}>
+              <img src="/krc-logo.jpg" style={{ height: 13, width: 'auto', borderRadius: 2 }} />
+              한국농어촌공사
+            </button>
+
+            {/* 외부기관 버튼 */}
+            <button onClick={() => { setActiveGroup('외부기관'); setActiveOrg('전체'); setActiveDept('전체'); }}
+              style={btnBase(activeGroup === '외부기관')}>
+              🏛 외부기관
+            </button>
           </div>
         </div>
 
-        {/* ── 소분류: 기관 버튼 ── */}
-        {activeGroup !== '전체' && (
+        {/* ── 외부기관 세부 선택 ── */}
+        {activeGroup === '외부기관' && (
           <div style={{ padding: '0 16px 8px' }}>
-            <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 9, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 6 }}>기관</p>
+            <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 9, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 6 }}>세부 기관</p>
             <div style={{ display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none' } as React.CSSProperties}>
-              {orgList.map(org => (
+              {extOrgList.map(org => (
                 <button key={org} onClick={() => { setActiveOrg(org); setActiveDept('전체'); }}
                   style={btnBase(activeOrg === org)}>
-                  {org === '전체'
-                    ? '전체'
-                    : org === '한국농어촌공사'
-                      ? <><img src="/krc-logo.jpg" style={{ height: 12, width: 'auto' }} />{org}</>
-                      : <>{getOrgEmoji(org) && <span>{getOrgEmoji(org)}</span>}{org}</>
-                  }
+                  {org === '전체' ? '전체' : <>{getOrgEmoji(org) && <span>{getOrgEmoji(org)}</span>}{org}</>}
                 </button>
               ))}
             </div>
           </div>
         )}
 
-        {/* ── 학과 드롭다운 ── */}
-        <div style={{ padding: '0 16px 12px' }}>
+        {/* ── 학과 버튼 (가로 스크롤) ── */}
+        <div style={{ padding: '0 16px 8px' }}>
           <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 9, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 6 }}>학과</p>
+          <div style={{ display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none', marginBottom: 6 } as React.CSSProperties}>
+            {deptList.map(dept => (
+              <button key={dept} onClick={() => setActiveDept(dept)}
+                style={btnBase(activeDept === dept)}>
+                {dept}
+              </button>
+            ))}
+          </div>
+          {/* 학과 드롭다운 (보조) */}
           <div style={{ position: 'relative' }}>
             <select value={activeDept} onChange={e => setActiveDept(e.target.value)}
-              style={{ width: '100%', appearance: 'none', WebkitAppearance: 'none', background: activeDept === '전체' ? 'rgba(255,255,255,0.12)' : '#fff', border: activeDept === '전체' ? '1px solid rgba(255,255,255,0.2)' : '2px solid #fff', borderRadius: 10, padding: '8px 36px 8px 14px', fontSize: 13, color: activeDept === '전체' ? 'rgba(255,255,255,0.85)' : '#1B3F7B', fontWeight: activeDept === '전체' ? 400 : 700, cursor: 'pointer', fontFamily: 'inherit', outline: 'none' } as React.CSSProperties}>
+              style={{ width: '100%', appearance: 'none', WebkitAppearance: 'none', background: activeDept === '전체' ? 'rgba(255,255,255,0.1)' : '#fff', border: activeDept === '전체' ? '1px solid rgba(255,255,255,0.2)' : '2px solid #fff', borderRadius: 10, padding: '8px 36px 8px 14px', fontSize: 13, color: activeDept === '전체' ? 'rgba(255,255,255,0.7)' : '#1B3F7B', fontWeight: activeDept === '전체' ? 400 : 700, cursor: 'pointer', fontFamily: 'inherit', outline: 'none' } as React.CSSProperties}>
               {deptList.map(dept => (
                 <option key={dept} value={dept} style={{ background: '#1B3F7B', color: '#fff' }}>
                   {dept === '전체' ? '🎓 학과 전체 보기' : `📚 ${dept}`}
@@ -288,7 +322,7 @@ export default function DirectoryPage() {
               ))}
             </select>
             <div style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
-              <svg width="14" height="14" fill="none" stroke={activeDept === '전체' ? 'rgba(255,255,255,0.7)' : '#1B3F7B'} strokeWidth="2" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></svg>
+              <svg width="14" height="14" fill="none" stroke={activeDept === '전체' ? 'rgba(255,255,255,0.6)' : '#1B3F7B'} strokeWidth="2" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></svg>
             </div>
           </div>
         </div>
