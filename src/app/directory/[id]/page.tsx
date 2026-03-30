@@ -265,7 +265,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
           )}
           {/* 기관 뱃지 */}
           <span style={{ display:'flex', alignItems:'center', gap:4, background:'rgba(255,255,255,0.15)', color:'#fff', fontSize:11, padding:'4px 10px', borderRadius:20, border:'1px solid rgba(255,255,255,0.2)' }}>
-            {org === '한국농어촌공사' && <img src="/krc-logo.jpg" alt="KRC" style={{ height:12, width:'auto' }} />}
+            {org === '한국농어촌공사' && <img src="/krc.png" alt="KRC" style={{ height:12, width:'auto' }} />}
             {org === '충남도청' && '🏛'}
             {org === '세종시' && '🌿'}
             {org === '충청시군' && '🏙'}
@@ -362,7 +362,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
                   <p style={{ fontSize:10, color:'#94a3b8', marginBottom:2 }}>소속 기관</p>
                   <div style={{ display:'flex', alignItems:'center', gap:6 }}>
                     {org === '한국농어촌공사' && (
-                      <img src="/krc-logo.jpg" alt="KRC" style={{ height:16, width:'auto', objectFit:'contain' }} />
+                      <img src="/krc.png" alt="KRC" style={{ height:16, width:'auto', objectFit:'contain' }} />
                     )}
                     <p style={{ fontSize:14, fontWeight:600, color:'#0f172a' }}>
                       {org === '충남도청' && '🏛 '}

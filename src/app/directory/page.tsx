@@ -111,6 +111,45 @@ function getOrgEmoji(org: string): string {
   return ORG_INFO[org]?.emoji || '';
 }
 
+// ── 기관 버튼 컴포넌트 ──
+function OrgButton({ org, active, onClick }: { org: string; active: boolean; onClick: () => void }) {
+  const hasLogo = !!ORG_LOGO[org];
+  return (
+    <button onClick={onClick} style={{
+      flexShrink: 0,
+      display: 'flex', alignItems: 'center', gap: 6,
+      padding: hasLogo ? '6px 14px 6px 8px' : '8px 16px',
+      borderRadius: 12,
+      cursor: 'pointer',
+      whiteSpace: 'nowrap',
+      fontFamily: 'inherit',
+      fontWeight: active ? 700 : 500,
+      fontSize: 13,
+      background: active ? '#1B3F7B' : '#fff',
+      color: active ? '#fff' : '#334155',
+      border: active ? '2px solid #1B3F7B' : '1.5px solid #e2e8f0',
+      boxShadow: active ? '0 2px 8px rgba(27,63,123,0.35)' : '0 1px 3px rgba(0,0,0,0.08)',
+      transition: 'all 0.15s',
+    }}>
+      {hasLogo && (
+        <div style={{
+          width: 28, height: 28, borderRadius: 6,
+          background: active ? 'rgba(255,255,255,0.15)' : '#f8fafc',
+          border: active ? '1px solid rgba(255,255,255,0.3)' : '1px solid #e2e8f0',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          overflow: 'hidden', flexShrink: 0,
+        }}>
+          <img src={ORG_LOGO[org]} alt={org}
+            style={{ width: 24, height: 24, objectFit: 'contain' }}
+            onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+        </div>
+      )}
+      {!hasLogo && getOrgEmoji(org) && <span style={{ fontSize: 15 }}>{getOrgEmoji(org)}</span>}
+      {org}
+    </button>
+  );
+}
+
 export default function DirectoryPage() {
   const router = useRouter();
   const [query, setQuery] = useState('');
@@ -152,10 +191,29 @@ export default function DirectoryPage() {
 
   const extOrgs = ORG_GROUPS.find(g => g.label === '외부기관')!.orgs;
 
+  // 외부기관 중 DB에 실제로 있는 것 (000 포함해서 버튼 표시용으로 별도 조회)
+  const [orgCounts, setOrgCounts] = useState<Record<string, number>>({});
+  useEffect(() => {
+    const fetchOrgCounts = async () => {
+      const { data } = await supabase
+        .from('alumni_master')
+        .select('organization')
+        .eq('auth_status', 'active');
+      if (data) {
+        const counts: Record<string, number> = {};
+        data.forEach((r: any) => {
+          counts[r.organization] = (counts[r.organization] || 0) + 1;
+        });
+        setOrgCounts(counts);
+      }
+    };
+    fetchOrgCounts();
+  }, []);
+
   const extOrgList = useMemo(() => {
-    const inData = extOrgs.filter(o => alumni.some(a => a.organization === o));
+    const inData = extOrgs.filter(o => orgCounts[o] > 0);
     return ['전체', ...inData];
-  }, [alumni]);
+  }, [orgCounts]);
 
   const filtered = useMemo(() => {
     const q = query.toLowerCase();
@@ -202,14 +260,26 @@ export default function DirectoryPage() {
     setTimeout(() => setSavedId(null), 2000);
   };
 
-  const btnBase = (active: boolean): React.CSSProperties => ({
-    flexShrink: 0, fontSize: 12, padding: '6px 12px', borderRadius: 20,
+  // 전체/텍스트 전용 버튼 스타일
+  const plainBtn = (active: boolean): React.CSSProperties => ({
+    flexShrink: 0, fontSize: 13, padding: '8px 16px', borderRadius: 12,
+    cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'inherit',
+    fontWeight: active ? 700 : 500,
+    background: active ? '#1B3F7B' : '#fff',
+    color: active ? '#fff' : '#334155',
+    border: active ? '2px solid #1B3F7B' : '1.5px solid #e2e8f0',
+    boxShadow: active ? '0 2px 8px rgba(27,63,123,0.35)' : '0 1px 3px rgba(0,0,0,0.08)',
+    transition: 'all 0.15s',
+  });
+
+  // 학과 버튼 스타일 (헤더 위)
+  const deptBtn = (active: boolean): React.CSSProperties => ({
+    flexShrink: 0, fontSize: 12, padding: '6px 14px', borderRadius: 20,
     cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'inherit',
     fontWeight: active ? 700 : 400,
     background: active ? '#fff' : 'rgba(255,255,255,0.12)',
     color: active ? '#1B3F7B' : 'rgba(255,255,255,0.85)',
     border: active ? '2px solid #fff' : '1px solid rgba(255,255,255,0.2)',
-    display: 'flex', alignItems: 'center', gap: 5,
   });
 
   const F = { fontFamily: "'Apple SD Gothic Neo','Noto Sans KR',sans-serif" };
@@ -235,7 +305,7 @@ export default function DirectoryPage() {
                 onError={e => { (e.target as HTMLImageElement).src = '/krc-logo.jpg'; }}
                 style={{ height: 22, width: 'auto', objectFit: 'contain' }} />
             </div>
-            <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11 }}></span>
+            <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11 }}>한국농어촌공사</span>
           </div>
           <TopButtons />
         </div>
@@ -271,63 +341,17 @@ export default function DirectoryPage() {
           </div>
         </div>
 
-        {/* ── 기관 대분류 버튼 ── */}
-        <div style={{ padding: '0 16px 8px' }}>
-          <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 9, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 6 }}>기관</p>
-          <div style={{ display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none' } as React.CSSProperties}>
-            <button onClick={() => { setActiveGroup('전체'); setActiveOrg('전체'); setActiveDept('전체'); }}
-              style={btnBase(activeGroup === '전체')}>
-              전체
-            </button>
-            <button onClick={() => { setActiveGroup('한국농어촌공사'); setActiveOrg('전체'); setActiveDept('전체'); }}
-              style={btnBase(activeGroup === '한국농어촌공사')}>
-              <img src="/logos/krc.png"
-                onError={e => { (e.target as HTMLImageElement).src = '/krc-logo.jpg'; }}
-                style={{ height: 13, width: 'auto' }} />
-              한국농어촌공사
-            </button>
-            <button onClick={() => { setActiveGroup('외부기관'); setActiveOrg('전체'); setActiveDept('전체'); }}
-              style={btnBase(activeGroup === '외부기관')}>
-              🏛 외부기관
-            </button>
-          </div>
-        </div>
-
-        {/* ── 외부기관 세부 선택 ── */}
-        {activeGroup === '외부기관' && (
-          <div style={{ padding: '0 16px 8px' }}>
-            <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 9, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 6 }}>세부 기관</p>
-            <div style={{ display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none' } as React.CSSProperties}>
-              {extOrgList.map(org => (
-                <button key={org} onClick={() => { setActiveOrg(org); setActiveDept('전체'); }}
-                  style={btnBase(activeOrg === org)}>
-                  {org === '전체' ? '전체' : (
-                    <>
-                      {ORG_LOGO[org]
-                        ? <img src={ORG_LOGO[org]} style={{ height: 13, width: 'auto' }}
-                            onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                        : getOrgEmoji(org) && <span>{getOrgEmoji(org)}</span>
-                      }
-                      {org}
-                    </>
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* ── 학과 버튼 + 드롭다운 ── */}
+        {/* ── 학과 버튼 (헤더 안, 가로스크롤) ── */}
         <div style={{ padding: '0 16px 12px' }}>
           <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 9, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 6 }}>학과</p>
           <div style={{ display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none', marginBottom: 6 } as React.CSSProperties}>
             {deptList.map(dept => (
-              <button key={dept} onClick={() => setActiveDept(dept)}
-                style={btnBase(activeDept === dept)}>
+              <button key={dept} onClick={() => setActiveDept(dept)} style={deptBtn(activeDept === dept)}>
                 {dept}
               </button>
             ))}
           </div>
+          {/* 드롭다운 보조 */}
           <div style={{ position: 'relative' }}>
             <select value={activeDept} onChange={e => setActiveDept(e.target.value)}
               style={{ width: '100%', appearance: 'none', WebkitAppearance: 'none', background: activeDept === '전체' ? 'rgba(255,255,255,0.1)' : '#fff', border: activeDept === '전체' ? '1px solid rgba(255,255,255,0.2)' : '2px solid #fff', borderRadius: 10, padding: '8px 36px 8px 14px', fontSize: 13, color: activeDept === '전체' ? 'rgba(255,255,255,0.7)' : '#1B3F7B', fontWeight: activeDept === '전체' ? 400 : 700, cursor: 'pointer', fontFamily: 'inherit', outline: 'none' } as React.CSSProperties}>
@@ -342,8 +366,43 @@ export default function DirectoryPage() {
             </div>
           </div>
         </div>
-
       </div> {/* 헤더 끝 */}
+
+      {/* ── 기관 필터 (헤더 아래 흰 배경) ── */}
+      <div style={{ background: '#fff', padding: '12px 16px', borderBottom: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+
+        {/* 대분류 */}
+        <p style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8 }}>기관</p>
+        <div style={{ display: 'flex', gap: 8, overflowX: 'auto', scrollbarWidth: 'none', marginBottom: activeGroup === '외부기관' ? 12 : 0 } as React.CSSProperties}>
+          <button onClick={() => { setActiveGroup('전체'); setActiveOrg('전체'); setActiveDept('전체'); }}
+            style={plainBtn(activeGroup === '전체')}>
+            전체
+          </button>
+          <OrgButton org="한국농어촌공사" active={activeGroup === '한국농어촌공사'}
+            onClick={() => { setActiveGroup('한국농어촌공사'); setActiveOrg('전체'); setActiveDept('전체'); }} />
+          <button onClick={() => { setActiveGroup('외부기관'); setActiveOrg('전체'); setActiveDept('전체'); }}
+            style={plainBtn(activeGroup === '외부기관')}>
+            🏛 외부기관
+          </button>
+        </div>
+
+        {/* 외부기관 세부 */}
+        {activeGroup === '외부기관' && (
+          <>
+            <p style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8 }}>세부 기관</p>
+            <div style={{ display: 'flex', gap: 8, overflowX: 'auto', scrollbarWidth: 'none' } as React.CSSProperties}>
+              <button onClick={() => { setActiveOrg('전체'); setActiveDept('전체'); }}
+                style={plainBtn(activeOrg === '전체')}>
+                전체
+              </button>
+              {extOrgList.filter(o => o !== '전체').map(org => (
+                <OrgButton key={org} org={org} active={activeOrg === org}
+                  onClick={() => { setActiveOrg(org); setActiveDept('전체'); }} />
+              ))}
+            </div>
+          </>
+        )}
+      </div>
 
       {/* ── 목록 ── */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '16px 14px 80px' }}>
@@ -390,19 +449,19 @@ export default function DirectoryPage() {
                       {[a.company, a.job_title].filter(Boolean).join(' · ')}
                     </p>
                   )}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                    {ORG_LOGO[org] ? (
-                      <img src={ORG_LOGO[org]} alt={org} style={{ height: 13, width: 'auto', objectFit: 'contain' }}
-                        onError={e => {
-                          (e.target as HTMLImageElement).style.display = 'none';
-                          (e.target as HTMLImageElement).nextElementSibling?.removeAttribute('style');
-                        }} />
-                    ) : null}
-                    {!ORG_LOGO[org] && (
-                      <span style={{ fontSize: 10, background: orgInfo?.bg || '#f8fafc', color: orgInfo?.color || '#64748b', padding: '1px 7px', borderRadius: 10, fontWeight: 600, border: `1px solid ${orgInfo?.color || '#e2e8f0'}30` }}>
-                        {getOrgEmoji(org) && getOrgEmoji(org) + ' '}{org}
-                      </span>
+                  {/* ── 소속기관 로고 + 텍스트 ── */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
+                    {ORG_LOGO[org] && (
+                      <img src={ORG_LOGO[org]} alt={org}
+                        style={{ height: 14, width: 'auto', objectFit: 'contain' }}
+                        onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                     )}
+                    {!ORG_LOGO[org] && getOrgEmoji(org) && (
+                      <span style={{ fontSize: 11 }}>{getOrgEmoji(org)}</span>
+                    )}
+                    <span style={{ fontSize: 11, color: orgInfo?.color || '#64748b', fontWeight: 600 }}>
+                      {org}
+                    </span>
                   </div>
                 </Link>
 
