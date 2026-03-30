@@ -18,28 +18,11 @@ interface Alumni {
   organization?: string;
 }
 
-// ── 기관 대분류 ──
 const ORG_GROUPS = [
-  {
-    label: '전체',
-    emoji: '🏢',
-    orgs: [],  // 빈 배열 = 전체
-  },
-  {
-    label: '공공기관',
-    emoji: '🏛',
-    orgs: ['한국농어촌공사','한국농수산식품유통공사','한국마사회','농촌진흥청','농림축산식품부','축산물품질평가원','농림수산식품교육문화정보원','농협중앙회'],
-  },
-  {
-    label: '광역시도',
-    emoji: '🌆',
-    orgs: ['충남도청','세종특별자치시','대전광역시'],
-  },
-  {
-    label: '시군',
-    emoji: '🏘',
-    orgs: ['천안시','공주시','보령시','아산시','서산시','논산시','계룡시','당진시','금산군','부여군','서천군','청양군','홍성군','예산군','태안군'],
-  },
+  { label: '전체', emoji: '🏢', orgs: [] },
+  { label: '공공기관', emoji: '🏛', orgs: ['한국농어촌공사','한국농수산식품유통공사','한국마사회','농촌진흥청','농림축산식품부','축산물품질평가원','농림수산식품교육문화정보원','농협중앙회'] },
+  { label: '광역시도', emoji: '🌆', orgs: ['충남도청','세종특별자치시','대전광역시'] },
+  { label: '시군', emoji: '🏘', orgs: ['천안시','공주시','보령시','아산시','서산시','논산시','계룡시','당진시','금산군','부여군','서천군','청양군','홍성군','예산군','태안군'] },
 ];
 
 const ORG_INFO: Record<string, { color: string; bg: string; emoji?: string }> = {
@@ -113,11 +96,9 @@ export default function DirectoryPage() {
   const [loading, setLoading] = useState(true);
   const [authChecked, setAuthChecked] = useState(false);
   const [savedId, setSavedId] = useState<string | null>(null);
-
-  // 필터 상태
-  const [activeGroup, setActiveGroup] = useState('전체');   // 대분류
-  const [activeOrg, setActiveOrg] = useState('전체');       // 기관
-  const [activeDept, setActiveDept] = useState('전체');     // 학과
+  const [activeGroup, setActiveGroup] = useState('전체');
+  const [activeOrg, setActiveOrg] = useState('전체');
+  const [activeDept, setActiveDept] = useState('전체');
 
   useEffect(() => {
     const init = async () => {
@@ -146,13 +127,12 @@ export default function DirectoryPage() {
     init();
   }, [router]);
 
-  // 현재 대분류에 속한 기관 목록
   const currentGroup = ORG_GROUPS.find(g => g.label === activeGroup)!;
+
   const orgList = activeGroup === '전체'
     ? ['전체', ...Array.from(new Set(alumni.map(a => a.organization || '한국농어촌공사')))]
     : ['전체', ...currentGroup.orgs];
 
-  // 학과 목록 (현재 필터 기준)
   const deptList = useMemo(() => {
     let base = alumni;
     if (activeGroup !== '전체') base = base.filter(a => currentGroup.orgs.includes(a.organization || '한국농어촌공사'));
@@ -196,20 +176,13 @@ export default function DirectoryPage() {
   };
 
   const btnBase = (active: boolean): React.CSSProperties => ({
-    flexShrink: 0,
-    fontSize: 12,
-    padding: '6px 12px',
-    borderRadius: 20,
-    cursor: 'pointer',
-    whiteSpace: 'nowrap',
-    fontFamily: 'inherit',
+    flexShrink: 0, fontSize: 12, padding: '6px 12px', borderRadius: 20,
+    cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'inherit',
     fontWeight: active ? 700 : 400,
     background: active ? '#fff' : 'rgba(255,255,255,0.12)',
     color: active ? '#1B3F7B' : 'rgba(255,255,255,0.85)',
     border: active ? '2px solid #fff' : '1px solid rgba(255,255,255,0.2)',
-    display: 'flex',
-    alignItems: 'center',
-    gap: 4,
+    display: 'flex', alignItems: 'center', gap: 4,
   });
 
   const F = { fontFamily: "'Apple SD Gothic Neo','Noto Sans KR',sans-serif" };
@@ -282,7 +255,7 @@ export default function DirectoryPage() {
           </div>
         </div>
 
-        {/* ── 소분류: 기관 ── */}
+        {/* ── 소분류: 기관 버튼 ── */}
         {activeGroup !== '전체' && (
           <div style={{ padding: '0 16px 8px' }}>
             <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 9, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 6 }}>기관</p>
@@ -290,9 +263,11 @@ export default function DirectoryPage() {
               {orgList.map(org => (
                 <button key={org} onClick={() => { setActiveOrg(org); setActiveDept('전체'); }}
                   style={btnBase(activeOrg === org)}>
-                  {org === '전체' ? '전체' : org === '한국농어촌공사'
-                    ? <><img src="/krc-logo.jpg" style={{ height: 12, width: 'auto' }} />{org}</>
-                    : <>{getOrgEmoji(org) && <span>{getOrgEmoji(org)}</span>}{org}</>
+                  {org === '전체'
+                    ? '전체'
+                    : org === '한국농어촌공사'
+                      ? <><img src="/krc-logo.jpg" style={{ height: 12, width: 'auto' }} />{org}</>
+                      : <>{getOrgEmoji(org) && <span>{getOrgEmoji(org)}</span>}{org}</>
                   }
                 </button>
               ))}
@@ -300,19 +275,25 @@ export default function DirectoryPage() {
           </div>
         )}
 
-        {/* ── 소분류: 학과 ── */}
+        {/* ── 학과 드롭다운 ── */}
         <div style={{ padding: '0 16px 12px' }}>
           <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 9, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 6 }}>학과</p>
-          <div style={{ display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none' } as React.CSSProperties}>
-            {deptList.map(dept => (
-              <button key={dept} onClick={() => setActiveDept(dept)}
-                style={btnBase(activeDept === dept)}>
-                {dept}
-              </button>
-            ))}
+          <div style={{ position: 'relative' }}>
+            <select value={activeDept} onChange={e => setActiveDept(e.target.value)}
+              style={{ width: '100%', appearance: 'none', WebkitAppearance: 'none', background: activeDept === '전체' ? 'rgba(255,255,255,0.12)' : '#fff', border: activeDept === '전체' ? '1px solid rgba(255,255,255,0.2)' : '2px solid #fff', borderRadius: 10, padding: '8px 36px 8px 14px', fontSize: 13, color: activeDept === '전체' ? 'rgba(255,255,255,0.85)' : '#1B3F7B', fontWeight: activeDept === '전체' ? 400 : 700, cursor: 'pointer', fontFamily: 'inherit', outline: 'none' } as React.CSSProperties}>
+              {deptList.map(dept => (
+                <option key={dept} value={dept} style={{ background: '#1B3F7B', color: '#fff' }}>
+                  {dept === '전체' ? '🎓 학과 전체 보기' : `📚 ${dept}`}
+                </option>
+              ))}
+            </select>
+            <div style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
+              <svg width="14" height="14" fill="none" stroke={activeDept === '전체' ? 'rgba(255,255,255,0.7)' : '#1B3F7B'} strokeWidth="2" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></svg>
+            </div>
           </div>
         </div>
-      </div>
+
+      </div> {/* 헤더 끝 */}
 
       {/* ── 목록 ── */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '16px 14px 80px' }}>
@@ -359,7 +340,6 @@ export default function DirectoryPage() {
                       {[a.company, a.job_title].filter(Boolean).join(' · ')}
                     </p>
                   )}
-                  {/* 기관 표시 */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                     {org === '한국농어촌공사' ? (
                       <img src="/krc-logo.jpg" alt="KRC" style={{ height: 13, width: 'auto', objectFit: 'contain' }} />
