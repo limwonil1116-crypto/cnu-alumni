@@ -151,9 +151,7 @@ export default function DirectoryPage() {
   const [loading, setLoading] = useState(true);
   const [authChecked, setAuthChecked] = useState(false);
   const [savedId, setSavedId] = useState<string | null>(null);
-
-  // ── 기본값: 한국농어촌공사 선택 ──
-  const [activeGroup, setActiveGroup] = useState('한국농어촌공사');
+  const [activeGroup, setActiveGroup] = useState('한국농어촌공사'); // 기본값
   const [activeOrg, setActiveOrg] = useState('전체');
   const [activeDept, setActiveDept] = useState('전체');
 
@@ -270,9 +268,10 @@ export default function DirectoryPage() {
     flexShrink: 0, fontSize: 12, padding: '6px 14px', borderRadius: 20,
     cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'inherit',
     fontWeight: active ? 700 : 400,
-    background: active ? '#fff' : 'rgba(255,255,255,0.12)',
-    color: active ? '#1B3F7B' : 'rgba(255,255,255,0.85)',
-    border: active ? '2px solid #fff' : '1px solid rgba(255,255,255,0.2)',
+    background: active ? '#1B3F7B' : '#fff',
+    color: active ? '#fff' : '#475569',
+    border: active ? '2px solid #1B3F7B' : '1.5px solid #e2e8f0',
+    boxShadow: active ? '0 2px 8px rgba(27,63,123,0.25)' : '0 1px 3px rgba(0,0,0,0.06)',
   });
 
   const F = { fontFamily: "'Apple SD Gothic Neo','Noto Sans KR',sans-serif" };
@@ -287,7 +286,7 @@ export default function DirectoryPage() {
   return (
     <div style={{ ...F, minHeight: '100dvh', display: 'flex', flexDirection: 'column', background: '#f0f4f8' }}>
 
-      {/* ── 헤더 ── */}
+      {/* ── 헤더 (파란 배경) ── */}
       <div style={{ background: 'linear-gradient(135deg, #0d2d6e 0%, #1B3F7B 60%, #1a5276 100%)', position: 'sticky', top: 0, zIndex: 40, boxShadow: '0 2px 12px rgba(13,45,110,0.3)' }}>
 
         {/* 상단바 */}
@@ -303,8 +302,8 @@ export default function DirectoryPage() {
           <TopButtons />
         </div>
 
-        {/* 타이틀 */}
-        <div style={{ padding: '12px 16px 0' }}>
+        {/* 타이틀 + 검색창 */}
+        <div style={{ padding: '12px 16px 12px' }}>
           <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 12 }}>
             <div>
               <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 10, letterSpacing: 2.5, textTransform: 'uppercase', marginBottom: 3 }}>The Strong CNU</p>
@@ -322,9 +321,7 @@ export default function DirectoryPage() {
               </Link>
             </div>
           </div>
-
-          {/* 검색창 */}
-          <div style={{ background: 'rgba(255,255,255,0.1)', borderRadius: 10, padding: '9px 14px', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, border: '1px solid rgba(255,255,255,0.15)' }}>
+          <div style={{ background: 'rgba(255,255,255,0.1)', borderRadius: 10, padding: '9px 14px', display: 'flex', alignItems: 'center', gap: 8, border: '1px solid rgba(255,255,255,0.15)' }}>
             <svg width="14" height="14" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="2" viewBox="0 0 24 24">
               <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
             </svg>
@@ -334,39 +331,14 @@ export default function DirectoryPage() {
           </div>
         </div>
 
-        {/* ── 학과 버튼 + 드롭다운 (헤더 안) ── */}
-        <div style={{ padding: '0 16px 12px' }}>
-          <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 9, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 6 }}>학과</p>
-          <div style={{ display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none', marginBottom: 6 } as React.CSSProperties}>
-            {deptList.map(dept => (
-              <button key={dept} onClick={() => setActiveDept(dept)} style={deptBtn(activeDept === dept)}>
-                {dept}
-              </button>
-            ))}
-          </div>
-          <div style={{ position: 'relative' }}>
-            <select value={activeDept} onChange={e => setActiveDept(e.target.value)}
-              style={{ width: '100%', appearance: 'none', WebkitAppearance: 'none', background: activeDept === '전체' ? 'rgba(255,255,255,0.1)' : '#fff', border: activeDept === '전체' ? '1px solid rgba(255,255,255,0.2)' : '2px solid #fff', borderRadius: 10, padding: '8px 36px 8px 14px', fontSize: 13, color: activeDept === '전체' ? 'rgba(255,255,255,0.7)' : '#1B3F7B', fontWeight: activeDept === '전체' ? 400 : 700, cursor: 'pointer', fontFamily: 'inherit', outline: 'none' } as React.CSSProperties}>
-              {deptList.map(dept => (
-                <option key={dept} value={dept} style={{ background: '#1B3F7B', color: '#fff' }}>
-                  {dept === '전체' ? '🎓 학과 전체 보기' : `📚 ${dept}`}
-                </option>
-              ))}
-            </select>
-            <div style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
-              <svg width="14" height="14" fill="none" stroke={activeDept === '전체' ? 'rgba(255,255,255,0.6)' : '#1B3F7B'} strokeWidth="2" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></svg>
-            </div>
-          </div>
-        </div>
+      </div> {/* ── 헤더 끝 ── */}
 
-      </div> {/* 헤더 끝 */}
+      {/* ── 기관 + 학과 필터 (흰 배경, sticky) ── */}
+      <div style={{ background: '#fff', borderBottom: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', position: 'sticky', top: 130, zIndex: 39, padding: '12px 16px' }}>
 
-      {/* ── 기관 필터 (헤더 바로 아래 흰 배경) ── */}
-      <div style={{ background: '#fff', padding: '12px 16px', borderBottom: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-
-        {/* 대분류 버튼 */}
+        {/* 기관 대분류 */}
         <p style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8 }}>기관</p>
-        <div style={{ display: 'flex', gap: 8, overflowX: 'auto', scrollbarWidth: 'none', marginBottom: activeGroup === '외부기관' ? 12 : 0 } as React.CSSProperties}>
+        <div style={{ display: 'flex', gap: 8, overflowX: 'auto', scrollbarWidth: 'none', marginBottom: 12 } as React.CSSProperties}>
           <button onClick={() => { setActiveGroup('전체'); setActiveOrg('전체'); setActiveDept('전체'); }}
             style={plainBtn(activeGroup === '전체')}>
             전체
@@ -383,7 +355,7 @@ export default function DirectoryPage() {
         {activeGroup === '외부기관' && (
           <>
             <p style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8 }}>세부 기관</p>
-            <div style={{ display: 'flex', gap: 8, overflowX: 'auto', scrollbarWidth: 'none' } as React.CSSProperties}>
+            <div style={{ display: 'flex', gap: 8, overflowX: 'auto', scrollbarWidth: 'none', marginBottom: 12 } as React.CSSProperties}>
               <button onClick={() => { setActiveOrg('전체'); setActiveDept('전체'); }}
                 style={plainBtn(activeOrg === '전체')}>
                 전체
@@ -395,6 +367,30 @@ export default function DirectoryPage() {
             </div>
           </>
         )}
+
+        {/* 학과 버튼 */}
+        <p style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8 }}>학과</p>
+        <div style={{ display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none', marginBottom: 8 } as React.CSSProperties}>
+          {deptList.map(dept => (
+            <button key={dept} onClick={() => setActiveDept(dept)} style={deptBtn(activeDept === dept)}>
+              {dept}
+            </button>
+          ))}
+        </div>
+        {/* 학과 드롭다운 */}
+        <div style={{ position: 'relative' }}>
+          <select value={activeDept} onChange={e => setActiveDept(e.target.value)}
+            style={{ width: '100%', appearance: 'none', WebkitAppearance: 'none', background: '#f8fafc', border: '1.5px solid #e2e8f0', borderRadius: 10, padding: '8px 36px 8px 14px', fontSize: 13, color: activeDept === '전체' ? '#94a3b8' : '#1B3F7B', fontWeight: activeDept === '전체' ? 400 : 700, cursor: 'pointer', fontFamily: 'inherit', outline: 'none' } as React.CSSProperties}>
+            {deptList.map(dept => (
+              <option key={dept} value={dept}>
+                {dept === '전체' ? '🎓 학과 전체 보기' : `📚 ${dept}`}
+              </option>
+            ))}
+          </select>
+          <div style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
+            <svg width="14" height="14" fill="none" stroke="#94a3b8" strokeWidth="2" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></svg>
+          </div>
+        </div>
       </div>
 
       {/* ── 목록 ── */}
@@ -442,7 +438,7 @@ export default function DirectoryPage() {
                       {[a.company, a.job_title].filter(Boolean).join(' · ')}
                     </p>
                   )}
-                  {/* ── 소속기관 표시 ── */}
+                  {/* 소속기관 표시 */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
                     {org === '한국농어촌공사' ? (
                       <img src="/krc-logo.jpg" alt="KRC"
