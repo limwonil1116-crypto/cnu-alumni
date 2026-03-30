@@ -144,6 +144,8 @@ function OrgButton({ org, active, onClick }: { org: string; active: boolean; onC
   );
 }
 
+const EXT_PIN = '1111';
+
 export default function DirectoryPage() {
   const router = useRouter();
   const [query, setQuery] = useState('');
@@ -151,9 +153,15 @@ export default function DirectoryPage() {
   const [loading, setLoading] = useState(true);
   const [authChecked, setAuthChecked] = useState(false);
   const [savedId, setSavedId] = useState<string | null>(null);
-  const [activeGroup, setActiveGroup] = useState('한국농어촌공사'); // 기본값
+  const [activeGroup, setActiveGroup] = useState('한국농어촌공사');
   const [activeOrg, setActiveOrg] = useState('전체');
   const [activeDept, setActiveDept] = useState('전체');
+
+  // 외부기관 PIN
+  const [extUnlocked, setExtUnlocked] = useState(false);
+  const [showPinModal, setShowPinModal] = useState(false);
+  const [pinInput, setPinInput] = useState('');
+  const [pinError, setPinError] = useState('');
 
   useEffect(() => {
     const init = async () => {
@@ -253,6 +261,25 @@ export default function DirectoryPage() {
     setTimeout(() => setSavedId(null), 2000);
   };
 
+  const handlePinKey = (k: string) => {
+    if (k === '⌫') { setPinInput(p => p.slice(0, -1)); setPinError(''); return; }
+    if (k === '' || pinInput.length >= 4) return;
+    const next = pinInput + k;
+    setPinInput(next);
+    setPinError('');
+    if (next.length === 4) {
+      if (next === EXT_PIN) {
+        setExtUnlocked(true);
+        setShowPinModal(false);
+        setActiveGroup('외부기관');
+        setActiveOrg('전체');
+        setActiveDept('전체');
+      } else {
+        setTimeout(() => { setPinError('비밀번호가 틀렸습니다'); setPinInput(''); }, 300);
+      }
+    }
+  };
+
   const plainBtn = (active: boolean): React.CSSProperties => ({
     flexShrink: 0, fontSize: 13, padding: '8px 16px', borderRadius: 12,
     cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'inherit',
@@ -288,8 +315,6 @@ export default function DirectoryPage() {
 
       {/* ── 헤더 (파란 배경) ── */}
       <div style={{ background: 'linear-gradient(135deg, #0d2d6e 0%, #1B3F7B 60%, #1a5276 100%)', position: 'sticky', top: 0, zIndex: 40, boxShadow: '0 2px 12px rgba(13,45,110,0.3)' }}>
-
-        {/* 상단바 */}
         <div style={{ padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ background: '#fff', borderRadius: 8, padding: '4px 10px', height: 32, display: 'flex', alignItems: 'center' }}>
@@ -301,8 +326,6 @@ export default function DirectoryPage() {
           </div>
           <TopButtons />
         </div>
-
-        {/* 타이틀 + 검색창 */}
         <div style={{ padding: '12px 16px 12px' }}>
           <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 12 }}>
             <div>
@@ -330,11 +353,10 @@ export default function DirectoryPage() {
             {query && <button onClick={() => setQuery('')} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 11, padding: '2px 7px', borderRadius: 10 }}>✕</button>}
           </div>
         </div>
+      </div> {/* 헤더 끝 */}
 
-      </div> {/* ── 헤더 끝 ── */}
-
-      {/* ── 기관 + 학과 필터 (흰 배경, sticky) ── */}
-      <div style={{ background: '#fff', borderBottom: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', position: 'sticky', top: 130, zIndex: 39, padding: '12px 16px' }}>
+      {/* ── 기관 + 학과 필터 (흰 배경) ── */}
+      <div style={{ background: '#fff', borderBottom: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', padding: '12px 16px' }}>
 
         {/* 기관 대분류 */}
         <p style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8 }}>기관</p>
@@ -345,14 +367,22 @@ export default function DirectoryPage() {
           </button>
           <OrgButton org="한국농어촌공사" active={activeGroup === '한국농어촌공사'}
             onClick={() => { setActiveGroup('한국농어촌공사'); setActiveOrg('전체'); setActiveDept('전체'); }} />
-          <button onClick={() => { setActiveGroup('외부기관'); setActiveOrg('전체'); setActiveDept('전체'); }}
+          {/* 외부기관 - PIN 잠금 */}
+          <button
+            onClick={() => {
+              if (extUnlocked) {
+                setActiveGroup('외부기관'); setActiveOrg('전체'); setActiveDept('전체');
+              } else {
+                setShowPinModal(true); setPinInput(''); setPinError('');
+              }
+            }}
             style={plainBtn(activeGroup === '외부기관')}>
-            🏛 외부기관
+            {extUnlocked ? '🏛 외부기관' : '🔒 외부기관'}
           </button>
         </div>
 
         {/* 외부기관 세부 */}
-        {activeGroup === '외부기관' && (
+        {activeGroup === '외부기관' && extUnlocked && (
           <>
             <p style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8 }}>세부 기관</p>
             <div style={{ display: 'flex', gap: 8, overflowX: 'auto', scrollbarWidth: 'none', marginBottom: 12 } as React.CSSProperties}>
@@ -393,6 +423,51 @@ export default function DirectoryPage() {
         </div>
       </div>
 
+      {/* ── 외부기관 PIN 모달 ── */}
+      {showPinModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 100, display: 'flex', alignItems: 'flex-end' }}
+          onClick={() => setShowPinModal(false)}>
+          <div style={{ background: '#fff', borderRadius: '20px 20px 0 0', padding: '28px 24px 44px', width: '100%', fontFamily: "'Apple SD Gothic Neo','Noto Sans KR',sans-serif" }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ textAlign: 'center', marginBottom: 20 }}>
+              <div style={{ fontSize: 36, marginBottom: 8 }}>🔒</div>
+              <p style={{ fontSize: 16, fontWeight: 700, color: '#0f172a', marginBottom: 4 }}>외부기관 잠금</p>
+              <p style={{ fontSize: 12, color: '#94a3b8' }}>4자리 비밀번호를 입력하세요</p>
+            </div>
+
+            {/* PIN 표시 */}
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginBottom: 16 }}>
+              {[0,1,2,3].map(i => (
+                <div key={i} style={{ width: 52, height: 60, border: `2px solid ${pinInput.length > i ? '#1B3F7B' : '#e2e8f0'}`, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, background: pinInput.length > i ? '#eff6ff' : '#fff', transition: 'all 0.15s' }}>
+                  {pinInput.length > i ? '●' : ''}
+                </div>
+              ))}
+            </div>
+
+            {pinError && (
+              <div style={{ background: '#fef2f2', color: '#dc2626', padding: '8px 14px', borderRadius: 10, fontSize: 12, marginBottom: 12, textAlign: 'center' }}>
+                {pinError}
+              </div>
+            )}
+
+            {/* 키패드 */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, maxWidth: 280, margin: '0 auto 16px', width: '100%' }}>
+              {['1','2','3','4','5','6','7','8','9','','0','⌫'].map((k, idx) => (
+                <button key={idx} onClick={() => handlePinKey(k)}
+                  style={{ height: 56, background: k === '' ? 'transparent' : '#f5f7fa', border: 'none', borderRadius: 12, fontSize: 22, fontWeight: 600, color: '#111827', cursor: k === '' ? 'default' : 'pointer', fontFamily: 'inherit' }}>
+                  {k}
+                </button>
+              ))}
+            </div>
+
+            <button onClick={() => setShowPinModal(false)}
+              style={{ width: '100%', background: '#f1f5f9', border: 'none', borderRadius: 12, padding: 14, fontSize: 14, fontWeight: 600, color: '#64748b', cursor: 'pointer' }}>
+              취소
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ── 목록 ── */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '16px 14px 80px' }}>
         {loading ? (
@@ -411,11 +486,9 @@ export default function DirectoryPage() {
           return (
             <div key={a.id} style={{ background: '#fff', borderRadius: 14, marginBottom: 8, border: '1px solid rgba(226,232,240,0.8)', boxShadow: '0 1px 3px rgba(13,45,110,0.07)', overflow: 'hidden' }}>
               <div style={{ display: 'flex', alignItems: 'center', padding: '13px 14px', gap: 12 }}>
-
                 <div style={{ width: 22, flexShrink: 0, textAlign: 'center' }}>
                   <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600 }}>{idx + 1}</span>
                 </div>
-
                 <Link href={'/directory/' + a.id} style={{ textDecoration: 'none', flexShrink: 0 }}>
                   <div style={{ width: 48, height: 48, borderRadius: 12, background: `linear-gradient(145deg, ${c1}, ${c2})`, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(13,45,110,0.2)' }}>
                     {a.photo_url
@@ -423,7 +496,6 @@ export default function DirectoryPage() {
                       : <span style={{ color: '#fff', fontSize: 18, fontWeight: 800 }}>{a.name.charAt(0)}</span>}
                   </div>
                 </Link>
-
                 <Link href={'/directory/' + a.id} style={{ textDecoration: 'none', flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3, flexWrap: 'wrap' }}>
                     <span style={{ fontSize: 15, fontWeight: 700, color: '#0f172a' }}>{a.name}</span>
@@ -438,7 +510,6 @@ export default function DirectoryPage() {
                       {[a.company, a.job_title].filter(Boolean).join(' · ')}
                     </p>
                   )}
-                  {/* 소속기관 표시 */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
                     {org === '한국농어촌공사' ? (
                       <img src="/krc-logo.jpg" alt="KRC"
@@ -460,7 +531,6 @@ export default function DirectoryPage() {
                     )}
                   </div>
                 </Link>
-
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
                   {a.admission_year && (
                     <span style={{ fontSize: 10, color: '#94a3b8', background: '#f8fafc', border: '1px solid #e2e8f0', padding: '3px 8px', borderRadius: 6, whiteSpace: 'nowrap' }}>
