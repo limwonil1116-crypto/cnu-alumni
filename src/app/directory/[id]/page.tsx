@@ -24,21 +24,44 @@ interface AlumniDetail {
 }
 
 const ORG_LIST = [
-  '한국농어촌공사',
-  '한국농수산식품유통공사',
-  '한국마사회',
-  '농촌진흥청',
-  '농림축산식품부',
-  '축산물품질평가원',
-  '농림수산식품교육문화정보원',
-  '농협중앙회',
-  '충남도청',
-  '세종특별자치시',
-  '대전광역시',
+  '한국농어촌공사', '농림축산식품부', '충남도청',
+  '세종특별자치시', '대전광역시',
   '천안시', '공주시', '보령시', '아산시', '서산시',
   '논산시', '계룡시', '당진시',
   '금산군', '부여군', '서천군', '청양군', '홍성군', '예산군', '태안군',
 ];
+
+const ORG_LOGO: Record<string, string> = {
+  '한국농어촌공사':  '/logos/krc.png',
+  '농림축산식품부':  '/logos/mafra.png',
+  '충남도청':        '/logos/chungnam.png',
+  '세종특별자치시':  '/logos/sejong.png',
+  '대전광역시':      '/logos/daejeon.png',
+  '천안시':          '/logos/cheonan.png',
+  '공주시':          '/logos/gongju.png',
+  '보령시':          '/logos/boryeong.png',
+  '아산시':          '/logos/asan.png',
+  '서산시':          '/logos/seosan.png',
+  '논산시':          '/logos/nonsan.png',
+  '계룡시':          '/logos/gyeryong.png',
+  '당진시':          '/logos/dangjin.png',
+  '금산군':          '/logos/geumsan.png',
+  '부여군':          '/logos/buyeo.png',
+  '서천군':          '/logos/seocheon.png',
+  '청양군':          '/logos/cheongyang.png',
+  '홍성군':          '/logos/hongseong.png',
+  '예산군':          '/logos/yesan.png',
+  '태안군':          '/logos/taean.png',
+};
+
+const ORG_EMOJI: Record<string, string> = {
+  '농림축산식품부': '🌾', '충남도청': '🏛',
+  '세종특별자치시': '🌿', '대전광역시': '🌆',
+  '천안시': '🏙', '공주시': '🏙', '보령시': '🏙', '아산시': '🏙',
+  '서산시': '🏙', '논산시': '🏙', '계룡시': '🏙', '당진시': '🏙',
+  '금산군': '🏘', '부여군': '🏘', '서천군': '🏘', '청양군': '🏘',
+  '홍성군': '🏘', '예산군': '🏘', '태안군': '🏘',
+};
 
 const avatarColor = (name: string) => {
   const colors = [['#0d2d6e','#1a4ba8'],['#1a3a6e','#1e5fa8'],['#0d4d6e','#1a7aa8'],['#1a2d6e','#2a4ba8'],['#0d3d5e','#1a6090'],['#162850','#1e4080']];
@@ -93,7 +116,6 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
       .select('id, name, phone, email, admission_year, graduation_year, department_name, organization, alumni_profiles (id, company, job_title, region, address, bio, photo_url, card_image_url)')
       .eq('id', id)
       .single();
-
     if (data) {
       const p = (data as any).alumni_profiles?.[0];
       const detail: AlumniDetail = {
@@ -122,11 +144,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
 
   useEffect(() => { fetchData(); }, [id]);
 
-  const showToast = (msg: string) => {
-    setToast(msg);
-    setTimeout(() => setToast(''), 2500);
-  };
-
+  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 2500); };
   const copy = async (text: string, label: string) => {
     await navigator.clipboard.writeText(text).catch(() => {});
     showToast(label + ' 복사됨');
@@ -152,12 +170,10 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
 
   const handleSave = async () => {
     setSaving(true);
-    // alumni_master 업데이트 (phone + organization)
     await supabase.from('alumni_master').update({
       phone: form.phone || null,
       organization: form.organization,
     }).eq('id', id);
-
     if (alumni?.profile_id) {
       await supabase.from('alumni_profiles').update({
         company: form.company || null, job_title: form.job_title || null,
@@ -212,6 +228,20 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
     { label:'휴대폰', key:'phone', placeholder:'01047581293' },
   ];
 
+  // 기관 로고/이모지 표시 헬퍼
+  const OrgBadge = ({ height = 14 }: { height?: number }) => (
+    <div style={{ display:'flex', alignItems:'center', gap:5 }}>
+      {ORG_LOGO[org] ? (
+        <img src={ORG_LOGO[org]} alt={org}
+          onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+          style={{ height, width:'auto', objectFit:'contain' }} />
+      ) : ORG_EMOJI[org] ? (
+        <span style={{ fontSize: height }}>{ORG_EMOJI[org]}</span>
+      ) : null}
+      <span style={{ fontSize:14, fontWeight:600, color:'#0f172a' }}>{org}</span>
+    </div>
+  );
+
   return (
     <div style={{ ...F, minHeight:'100dvh', display:'flex', flexDirection:'column', background:'#f0f4f8' }}>
 
@@ -264,11 +294,14 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
             </span>
           )}
           {/* 기관 뱃지 */}
-          <span style={{ display:'flex', alignItems:'center', gap:4, background:'rgba(255,255,255,0.15)', color:'#fff', fontSize:11, padding:'4px 10px', borderRadius:20, border:'1px solid rgba(255,255,255,0.2)' }}>
-            {org === '한국농어촌공사' && <img src="/krc.png" alt="KRC" style={{ height:12, width:'auto' }} />}
-            {org === '충남도청' && '🏛'}
-            {org === '세종시' && '🌿'}
-            {org === '충청시군' && '🏙'}
+          <span style={{ display:'flex', alignItems:'center', gap:5, background:'rgba(255,255,255,0.15)', color:'#fff', fontSize:11, padding:'4px 10px', borderRadius:20, border:'1px solid rgba(255,255,255,0.2)' }}>
+            {ORG_LOGO[org] ? (
+              <img src={ORG_LOGO[org]} alt={org}
+                onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                style={{ height:14, width:'auto', objectFit:'contain' }} />
+            ) : ORG_EMOJI[org] ? (
+              <span>{ORG_EMOJI[org]}</span>
+            ) : null}
             {org}
           </span>
         </div>
@@ -326,8 +359,6 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
           <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12 }}>{bar}<span style={{ fontSize:11, fontWeight:700, color:'#64748b', letterSpacing:1.5, textTransform:'uppercase' as const }}>소속</span></div>
           {editMode ? (
             <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-
-              {/* 기관 선택 드롭다운 */}
               <div>
                 <p style={{ fontSize:11, color:'#94a3b8', marginBottom:3 }}>소속 기관</p>
                 <div style={{ position:'relative' }}>
@@ -344,8 +375,6 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
                   </div>
                 </div>
               </div>
-
-              {/* 나머지 필드 */}
               {fieldRows.map(f => (
                 <div key={f.key}>
                   <p style={{ fontSize:11, color:'#94a3b8', marginBottom:3 }}>{f.label}</p>
@@ -356,21 +385,11 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
             </div>
           ) : (
             <>
-              {/* 기관 표시 */}
+              {/* 기관 표시 - 로고 + 텍스트 */}
               <div style={{ display:'flex', alignItems:'center', gap:8, padding:'6px 0', borderBottom:'1px solid #f1f5f9' }}>
                 <div style={{ flex:1 }}>
-                  <p style={{ fontSize:10, color:'#94a3b8', marginBottom:2 }}>소속 기관</p>
-                  <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-                    {org === '한국농어촌공사' && (
-                      <img src="/krc.png" alt="KRC" style={{ height:16, width:'auto', objectFit:'contain' }} />
-                    )}
-                    <p style={{ fontSize:14, fontWeight:600, color:'#0f172a' }}>
-                      {org === '충남도청' && '🏛 '}
-                      {org === '세종시' && '🌿 '}
-                      {org === '충청시군' && '🏙 '}
-                      {org}
-                    </p>
-                  </div>
+                  <p style={{ fontSize:10, color:'#94a3b8', marginBottom:4 }}>소속 기관</p>
+                  <OrgBadge height={18} />
                 </div>
               </div>
               {alumni.company && <InfoRow label="회사/부서" value={alumni.company} />}
