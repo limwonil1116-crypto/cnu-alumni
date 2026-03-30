@@ -301,11 +301,11 @@ export default function DirectoryPage() {
         <div style={{ padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ background: '#fff', borderRadius: 8, padding: '4px 10px', height: 32, display: 'flex', alignItems: 'center' }}>
-              <img src="/logos/krc.png" alt="KRC"
+              <img src="/krc-log.jpg" alt="KRC"
                 onError={e => { (e.target as HTMLImageElement).src = '/krc-logo.jpg'; }}
                 style={{ height: 22, width: 'auto', objectFit: 'contain' }} />
             </div>
-            <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11 }}>한국농어촌공사</span>
+            <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11 }}></span>
           </div>
           <TopButtons />
         </div>
@@ -452,7 +452,7 @@ export default function DirectoryPage() {
                   {/* ── 소속기관 로고 + 텍스트 ── */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
                     {org === '한국농어촌공사' ? (
-                      <img src="/logos/krc.png" alt="KRC"
+                      <img src="krc-logo.jpg" alt="KRC"
                         style={{ height: 16, width: 'auto', objectFit: 'contain' }} />
                     ) : (
                       <>
