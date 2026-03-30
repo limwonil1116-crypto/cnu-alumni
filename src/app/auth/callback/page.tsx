@@ -105,12 +105,21 @@ export default function AuthCallbackPage() {
         </p>
 
         {/* 안내 박스 */}
-        <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 12, padding: '12px 16px', marginBottom: 20, fontSize: 12, color: '#92400e', lineHeight: 1.8 }}>
+        <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 12, padding: '12px 16px', marginBottom: 12, fontSize: 12, color: '#92400e', lineHeight: 1.8 }}>
           📋 동문 등록 문의<br />
           <strong>임원일 과장</strong><br />
           <a href="tel:010-4758-1293" style={{ color: '#1B3F7B', fontWeight: 700, textDecoration: 'none' }}>
             📱 010-4758-1293
           </a>
+        </div>
+
+        {/* 카카오 이름 안내 */}
+        <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 12, padding: '12px 16px', marginBottom: 20, fontSize: 12, color: '#0369a1', lineHeight: 1.8, textAlign: 'left' }}>
+          ⚠️ <strong>카카오톡 이름 안내</strong><br />
+          카카오톡 이름이 <strong>성+이름</strong>(예: 홍길동)으로<br />
+          설정되어 있지 않으면 자동 연동이 불가합니다.<br /><br />
+          이 경우 <strong>카카오톡 이메일 주소</strong>를<br />
+          임원일 과장님께 알려주시면 등록해드립니다.
         </div>
 
         {/* 버튼 */}
