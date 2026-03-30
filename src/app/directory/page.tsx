@@ -18,36 +18,42 @@ interface Alumni {
   organization?: string;
 }
 
-const ORG_LIST = [
-  '전체',
-  '한국농어촌공사',
-  '한국농수산식품유통공사',
-  '한국마사회',
-  '농촌진흥청',
-  '농림축산식품부',
-  '축산물품질평가원',
-  '농림수산식품교육문화정보원',
-  '농협중앙회',
-  '충남도청',
-  '세종특별자치시',
-  '대전광역시',
-  '천안시', '공주시', '보령시', '아산시', '서산시',
-  '논산시', '계룡시', '당진시',
-  '금산군', '부여군', '서천군', '청양군', '홍성군', '예산군', '태안군',
+// ── 기관 대분류 ──
+const ORG_GROUPS = [
+  {
+    label: '전체',
+    emoji: '🏢',
+    orgs: [],  // 빈 배열 = 전체
+  },
+  {
+    label: '공공기관',
+    emoji: '🏛',
+    orgs: ['한국농어촌공사','한국농수산식품유통공사','한국마사회','농촌진흥청','농림축산식품부','축산물품질평가원','농림수산식품교육문화정보원','농협중앙회'],
+  },
+  {
+    label: '광역시도',
+    emoji: '🌆',
+    orgs: ['충남도청','세종특별자치시','대전광역시'],
+  },
+  {
+    label: '시군',
+    emoji: '🏘',
+    orgs: ['천안시','공주시','보령시','아산시','서산시','논산시','계룡시','당진시','금산군','부여군','서천군','청양군','홍성군','예산군','태안군'],
+  },
 ];
 
 const ORG_INFO: Record<string, { color: string; bg: string; emoji?: string }> = {
-  '한국농어촌공사':        { color: '#1B3F7B', bg: '#eff6ff' },
-  '한국농수산식품유통공사': { color: '#0369a1', bg: '#f0f9ff', emoji: '🐟' },
-  '한국마사회':           { color: '#7c2d12', bg: '#fff7ed', emoji: '🐎' },
-  '축산물품질평가원':      { color: '#b45309', bg: '#fffbeb', emoji: '🥩' },
-  '농림수산식품교육문화정보원': { color: '#0f766e', bg: '#f0fdfa', emoji: '📚' },
-  '농협중앙회':           { color: '#15803d', bg: '#f0fdf4', emoji: '🌾' },
-  '농촌진흥청':           { color: '#14532d', bg: '#f0fdf4', emoji: '🌱' },
-  '농림축산식품부':        { color: '#3b1f0a', bg: '#fefce8', emoji: '🌾' },
-  '충남도청':             { color: '#065f46', bg: '#f0fdf4', emoji: '🏛' },
-  '세종특별자치시':        { color: '#0c4a6e', bg: '#f0f9ff', emoji: '🌿' },
-  '대전광역시':           { color: '#1e3a5f', bg: '#eff6ff', emoji: '🏙' },
+  '한국농어촌공사':            { color: '#1B3F7B', bg: '#eff6ff' },
+  '한국농수산식품유통공사':     { color: '#0369a1', bg: '#f0f9ff', emoji: '🐟' },
+  '한국마사회':                { color: '#7c2d12', bg: '#fff7ed', emoji: '🐎' },
+  '농촌진흥청':                { color: '#14532d', bg: '#f0fdf4', emoji: '🌱' },
+  '농림축산식품부':             { color: '#3b1f0a', bg: '#fefce8', emoji: '🌾' },
+  '축산물품질평가원':           { color: '#b45309', bg: '#fffbeb', emoji: '🥩' },
+  '농림수산식품교육문화정보원':  { color: '#0f766e', bg: '#f0fdfa', emoji: '📚' },
+  '농협중앙회':                { color: '#15803d', bg: '#f0fdf4', emoji: '🌾' },
+  '충남도청':                  { color: '#065f46', bg: '#f0fdf4', emoji: '🏛' },
+  '세종특별자치시':             { color: '#0c4a6e', bg: '#f0f9ff', emoji: '🌿' },
+  '대전광역시':                { color: '#1e3a5f', bg: '#eff6ff', emoji: '🌆' },
   '천안시':  { color: '#1e40af', bg: '#eff6ff', emoji: '🏙' },
   '공주시':  { color: '#4a044e', bg: '#fdf4ff', emoji: '🏙' },
   '보령시':  { color: '#0c4a6e', bg: '#f0f9ff', emoji: '🏙' },
@@ -77,8 +83,9 @@ const DEPT_COLORS: Record<string, [string, string]> = {
   '무역학과':     ['#0c4a6e', '#0284c7'],
   '문헌정보과':   ['#3f0d12', '#dc2626'],
   '미생물분자생명과학과': ['#1a1a2e', '#7c3aed'],
-  '바이오시스템공학과':   ['#0d3d2e', '#059669'],
+  '바이오시스템기계공학과': ['#0d3d2e', '#059669'],
   '지질학과':     ['#422006', '#d97706'],
+  '지역환경토목학과': ['#0f2942', '#1d4ed8'],
   '토목공학과':   ['#0f2942', '#1d4ed8'],
   '행정학과':     ['#2d1b69', '#6d28d9'],
   '조선학과':     ['#0c3547', '#0369a1'],
@@ -104,11 +111,13 @@ export default function DirectoryPage() {
   const [query, setQuery] = useState('');
   const [alumni, setAlumni] = useState<Alumni[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeDept, setActiveDept] = useState('전체');
-  const [activeOrg, setActiveOrg] = useState('전체');
   const [authChecked, setAuthChecked] = useState(false);
   const [savedId, setSavedId] = useState<string | null>(null);
-  const [filterMode, setFilterMode] = useState<'dept' | 'org'>('dept');
+
+  // 필터 상태
+  const [activeGroup, setActiveGroup] = useState('전체');   // 대분류
+  const [activeOrg, setActiveOrg] = useState('전체');       // 기관
+  const [activeDept, setActiveDept] = useState('전체');     // 학과
 
   useEffect(() => {
     const init = async () => {
@@ -137,17 +146,31 @@ export default function DirectoryPage() {
     init();
   }, [router]);
 
-  const departments = ['전체', ...Array.from(new Set(alumni.map(a => a.department).filter(Boolean))).sort()];
+  // 현재 대분류에 속한 기관 목록
+  const currentGroup = ORG_GROUPS.find(g => g.label === activeGroup)!;
+  const orgList = activeGroup === '전체'
+    ? ['전체', ...Array.from(new Set(alumni.map(a => a.organization || '한국농어촌공사')))]
+    : ['전체', ...currentGroup.orgs];
+
+  // 학과 목록 (현재 필터 기준)
+  const deptList = useMemo(() => {
+    let base = alumni;
+    if (activeGroup !== '전체') base = base.filter(a => currentGroup.orgs.includes(a.organization || '한국농어촌공사'));
+    if (activeOrg !== '전체') base = base.filter(a => a.organization === activeOrg);
+    return ['전체', ...Array.from(new Set(base.map(a => a.department).filter(Boolean))).sort()];
+  }, [alumni, activeGroup, activeOrg]);
 
   const filtered = useMemo(() => {
     const q = query.toLowerCase();
     return alumni.filter(a => {
-      const matchQ = !q || a.name.includes(q) || (a.department || '').includes(q) || (a.company || '').toLowerCase().includes(q) || String(a.admission_year || '').includes(q) || (a.organization || '').includes(q);
+      const org = a.organization || '한국농어촌공사';
+      const matchQ = !q || a.name.includes(q) || (a.department || '').includes(q) || (a.company || '').toLowerCase().includes(q) || String(a.admission_year || '').includes(q) || org.includes(q);
+      const matchGroup = activeGroup === '전체' || currentGroup.orgs.includes(org);
+      const matchOrg = activeOrg === '전체' || org === activeOrg;
       const matchDept = activeDept === '전체' || a.department === activeDept;
-      const matchOrg = activeOrg === '전체' || a.organization === activeOrg;
-      return matchQ && matchDept && matchOrg;
+      return matchQ && matchGroup && matchOrg && matchDept;
     });
-  }, [query, alumni, activeDept, activeOrg]);
+  }, [query, alumni, activeGroup, activeOrg, activeDept]);
 
   function saveContact(a: Alumni) {
     const vcard = [
@@ -156,7 +179,7 @@ export default function DirectoryPage() {
       a.phone ? `TEL;TYPE=CELL:${a.phone}` : '',
       a.company ? `ORG:${a.company}` : '',
       a.job_title ? `TITLE:${a.job_title}` : '',
-      a.department ? `NOTE:충청지역 백마회 / ${a.department}` : 'NOTE:충청지역 백마회',
+      a.department ? `NOTE:충남대학교 백마회 / ${a.department}` : 'NOTE:충남대학교 백마회',
       'END:VCARD',
     ].filter(Boolean).join('\n');
     const blob = new Blob([vcard], { type: 'text/vcard;charset=utf-8' });
@@ -171,6 +194,23 @@ export default function DirectoryPage() {
     setSavedId(a.id);
     setTimeout(() => setSavedId(null), 2000);
   };
+
+  const btnBase = (active: boolean): React.CSSProperties => ({
+    flexShrink: 0,
+    fontSize: 12,
+    padding: '6px 12px',
+    borderRadius: 20,
+    cursor: 'pointer',
+    whiteSpace: 'nowrap',
+    fontFamily: 'inherit',
+    fontWeight: active ? 700 : 400,
+    background: active ? '#fff' : 'rgba(255,255,255,0.12)',
+    color: active ? '#1B3F7B' : 'rgba(255,255,255,0.85)',
+    border: active ? '2px solid #fff' : '1px solid rgba(255,255,255,0.2)',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 4,
+  });
 
   const F = { fontFamily: "'Apple SD Gothic Neo','Noto Sans KR',sans-serif" };
 
@@ -193,12 +233,12 @@ export default function DirectoryPage() {
             <div style={{ background: '#fff', borderRadius: 8, padding: '4px 10px', height: 32, display: 'flex', alignItems: 'center' }}>
               <img src="/krc-logo.jpg" alt="KRC" style={{ height: 22, width: 'auto', objectFit: 'contain' }} />
             </div>
-            <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11 }}></span>
+            <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11 }}>한국농어촌공사</span>
           </div>
           <TopButtons />
         </div>
 
-        {/* 타이틀 + 카운트 */}
+        {/* 타이틀 */}
         <div style={{ padding: '12px 16px 0' }}>
           <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 12 }}>
             <div>
@@ -219,7 +259,7 @@ export default function DirectoryPage() {
           </div>
 
           {/* 검색창 */}
-          <div style={{ background: 'rgba(255,255,255,0.1)', borderRadius: 10, padding: '9px 14px', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, border: '1px solid rgba(255,255,255,0.15)' }}>
+          <div style={{ background: 'rgba(255,255,255,0.1)', borderRadius: 10, padding: '9px 14px', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, border: '1px solid rgba(255,255,255,0.15)' }}>
             <svg width="14" height="14" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="2" viewBox="0 0 24 24">
               <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
             </svg>
@@ -229,75 +269,49 @@ export default function DirectoryPage() {
           </div>
         </div>
 
-        {/* ── 필터 모드 탭 ── */}
-        <div style={{ padding: '0 16px 8px', display: 'flex', gap: 6 }}>
-          <button onClick={() => setFilterMode('dept')}
-            style={{ flex: 1, padding: '7px', background: filterMode === 'dept' ? '#fff' : 'rgba(255,255,255,0.1)', border: filterMode === 'dept' ? 'none' : '1px solid rgba(255,255,255,0.2)', borderRadius: 10, fontSize: 12, fontWeight: 700, color: filterMode === 'dept' ? '#1B3F7B' : 'rgba(255,255,255,0.7)', cursor: 'pointer', fontFamily: 'inherit' }}>
-            🎓 학과별
-          </button>
-          <button onClick={() => setFilterMode('org')}
-            style={{ flex: 1, padding: '7px', background: filterMode === 'org' ? '#fff' : 'rgba(255,255,255,0.1)', border: filterMode === 'org' ? 'none' : '1px solid rgba(255,255,255,0.2)', borderRadius: 10, fontSize: 12, fontWeight: 700, color: filterMode === 'org' ? '#1B3F7B' : 'rgba(255,255,255,0.7)', cursor: 'pointer', fontFamily: 'inherit' }}>
-            🏢 기관별
-          </button>
+        {/* ── 대분류: 기관 그룹 ── */}
+        <div style={{ padding: '0 16px 8px' }}>
+          <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 9, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 6 }}>기관 분류</p>
+          <div style={{ display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none' } as React.CSSProperties}>
+            {ORG_GROUPS.map(g => (
+              <button key={g.label} onClick={() => { setActiveGroup(g.label); setActiveOrg('전체'); setActiveDept('전체'); }}
+                style={btnBase(activeGroup === g.label)}>
+                <span>{g.emoji}</span>{g.label}
+              </button>
+            ))}
+          </div>
         </div>
 
-        {/* ── 학과 필터 ── */}
-        {filterMode === 'dept' && (
-          <div style={{ padding: '0 16px 12px' }}>
-            <div style={{ display: 'flex', gap: 6, marginBottom: 8, overflowX: 'auto', scrollbarWidth: 'none' } as React.CSSProperties}>
-              {departments.map(dept => (
-                <button key={dept} onClick={() => setActiveDept(dept)}
-                  style={{ flexShrink: 0, fontSize: 12, padding: '6px 14px', borderRadius: 20, cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'inherit', fontWeight: activeDept === dept ? 700 : 400, background: activeDept === dept ? '#fff' : 'rgba(255,255,255,0.12)', color: activeDept === dept ? '#1B3F7B' : 'rgba(255,255,255,0.8)', border: activeDept === dept ? '2px solid #fff' : '1px solid rgba(255,255,255,0.2)' }}>
-                  {dept}
+        {/* ── 소분류: 기관 ── */}
+        {activeGroup !== '전체' && (
+          <div style={{ padding: '0 16px 8px' }}>
+            <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 9, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 6 }}>기관</p>
+            <div style={{ display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none' } as React.CSSProperties}>
+              {orgList.map(org => (
+                <button key={org} onClick={() => { setActiveOrg(org); setActiveDept('전체'); }}
+                  style={btnBase(activeOrg === org)}>
+                  {org === '전체' ? '전체' : org === '한국농어촌공사'
+                    ? <><img src="/krc-logo.jpg" style={{ height: 12, width: 'auto' }} />{org}</>
+                    : <>{getOrgEmoji(org) && <span>{getOrgEmoji(org)}</span>}{org}</>
+                  }
                 </button>
               ))}
-            </div>
-            <div style={{ position: 'relative' }}>
-              <select value={activeDept} onChange={e => setActiveDept(e.target.value)}
-                style={{ width: '100%', appearance: 'none', WebkitAppearance: 'none', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.25)', borderRadius: 10, padding: '9px 36px 9px 14px', fontSize: 13, color: activeDept === '전체' ? 'rgba(255,255,255,0.6)' : '#fff', fontWeight: activeDept === '전체' ? 400 : 600, cursor: 'pointer', fontFamily: 'inherit', outline: 'none' } as React.CSSProperties}>
-                {departments.map(dept => (
-                  <option key={dept} value={dept} style={{ background: '#1B3F7B', color: '#fff' }}>
-                    {dept === '전체' ? '🎓 학과 전체 보기' : `📚 ${dept}`}
-                  </option>
-                ))}
-              </select>
-              <div style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
-                <svg width="14" height="14" fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth="2" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></svg>
-              </div>
             </div>
           </div>
         )}
 
-        {/* ── 기관 필터 ── */}
-        {filterMode === 'org' && (
-          <div style={{ padding: '0 16px 12px' }}>
-            <div style={{ display: 'flex', gap: 6, marginBottom: 8, overflowX: 'auto', scrollbarWidth: 'none' } as React.CSSProperties}>
-              {ORG_LIST.map(org => (
-                <button key={org} onClick={() => setActiveOrg(org)}
-                  style={{ flexShrink: 0, fontSize: 12, padding: '6px 12px', borderRadius: 20, cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'inherit', fontWeight: activeOrg === org ? 700 : 400, background: activeOrg === org ? '#fff' : 'rgba(255,255,255,0.12)', color: activeOrg === org ? '#1B3F7B' : 'rgba(255,255,255,0.8)', border: activeOrg === org ? '2px solid #fff' : '1px solid rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                  {org === '한국농어촌공사'
-                    ? <img src="/krc-logo.jpg" style={{ height: 13, width: 'auto' }} />
-                    : getOrgEmoji(org) && <span style={{ fontSize: 11 }}>{getOrgEmoji(org)}</span>
-                  }
-                  {org}
-                </button>
-              ))}
-            </div>
-            <div style={{ position: 'relative' }}>
-              <select value={activeOrg} onChange={e => setActiveOrg(e.target.value)}
-                style={{ width: '100%', appearance: 'none', WebkitAppearance: 'none', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.25)', borderRadius: 10, padding: '9px 36px 9px 14px', fontSize: 13, color: activeOrg === '전체' ? 'rgba(255,255,255,0.6)' : '#fff', fontWeight: activeOrg === '전체' ? 400 : 600, cursor: 'pointer', fontFamily: 'inherit', outline: 'none' } as React.CSSProperties}>
-                {ORG_LIST.map(org => (
-                  <option key={org} value={org} style={{ background: '#1B3F7B', color: '#fff' }}>
-                    {org === '전체' ? '🏢 기관 전체 보기' : `${getOrgEmoji(org)} ${org}`}
-                  </option>
-                ))}
-              </select>
-              <div style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
-                <svg width="14" height="14" fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth="2" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></svg>
-              </div>
-            </div>
+        {/* ── 소분류: 학과 ── */}
+        <div style={{ padding: '0 16px 12px' }}>
+          <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 9, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 6 }}>학과</p>
+          <div style={{ display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none' } as React.CSSProperties}>
+            {deptList.map(dept => (
+              <button key={dept} onClick={() => setActiveDept(dept)}
+                style={btnBase(activeDept === dept)}>
+                {dept}
+              </button>
+            ))}
           </div>
-        )}
+        </div>
       </div>
 
       {/* ── 목록 ── */}
@@ -319,12 +333,10 @@ export default function DirectoryPage() {
             <div key={a.id} style={{ background: '#fff', borderRadius: 14, marginBottom: 8, border: '1px solid rgba(226,232,240,0.8)', boxShadow: '0 1px 3px rgba(13,45,110,0.07)', overflow: 'hidden' }}>
               <div style={{ display: 'flex', alignItems: 'center', padding: '13px 14px', gap: 12 }}>
 
-                {/* 번호 */}
                 <div style={{ width: 22, flexShrink: 0, textAlign: 'center' }}>
                   <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600 }}>{idx + 1}</span>
                 </div>
 
-                {/* 아바타 */}
                 <Link href={'/directory/' + a.id} style={{ textDecoration: 'none', flexShrink: 0 }}>
                   <div style={{ width: 48, height: 48, borderRadius: 12, background: `linear-gradient(145deg, ${c1}, ${c2})`, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(13,45,110,0.2)' }}>
                     {a.photo_url
@@ -333,7 +345,6 @@ export default function DirectoryPage() {
                   </div>
                 </Link>
 
-                {/* 정보 */}
                 <Link href={'/directory/' + a.id} style={{ textDecoration: 'none', flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3, flexWrap: 'wrap' }}>
                     <span style={{ fontSize: 15, fontWeight: 700, color: '#0f172a' }}>{a.name}</span>
@@ -360,7 +371,6 @@ export default function DirectoryPage() {
                   </div>
                 </Link>
 
-                {/* 입학연도 + 저장 */}
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
                   {a.admission_year && (
                     <span style={{ fontSize: 10, color: '#94a3b8', background: '#f8fafc', border: '1px solid #e2e8f0', padding: '3px 8px', borderRadius: 6, whiteSpace: 'nowrap' }}>
