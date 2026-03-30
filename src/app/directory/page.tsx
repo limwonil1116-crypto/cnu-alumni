@@ -111,20 +111,14 @@ function getOrgEmoji(org: string): string {
   return ORG_INFO[org]?.emoji || '';
 }
 
-// ── 기관 버튼 컴포넌트 ──
 function OrgButton({ org, active, onClick }: { org: string; active: boolean; onClick: () => void }) {
   const hasLogo = !!ORG_LOGO[org];
   return (
     <button onClick={onClick} style={{
-      flexShrink: 0,
-      display: 'flex', alignItems: 'center', gap: 6,
+      flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6,
       padding: hasLogo ? '6px 14px 6px 8px' : '8px 16px',
-      borderRadius: 12,
-      cursor: 'pointer',
-      whiteSpace: 'nowrap',
-      fontFamily: 'inherit',
-      fontWeight: active ? 700 : 500,
-      fontSize: 13,
+      borderRadius: 12, cursor: 'pointer', whiteSpace: 'nowrap',
+      fontFamily: 'inherit', fontWeight: active ? 700 : 500, fontSize: 13,
       background: active ? '#1B3F7B' : '#fff',
       color: active ? '#fff' : '#334155',
       border: active ? '2px solid #1B3F7B' : '1.5px solid #e2e8f0',
@@ -157,7 +151,9 @@ export default function DirectoryPage() {
   const [loading, setLoading] = useState(true);
   const [authChecked, setAuthChecked] = useState(false);
   const [savedId, setSavedId] = useState<string | null>(null);
-  const [activeGroup, setActiveGroup] = useState('전체');
+
+  // ── 기본값: 한국농어촌공사 선택 ──
+  const [activeGroup, setActiveGroup] = useState('한국농어촌공사');
   const [activeOrg, setActiveOrg] = useState('전체');
   const [activeDept, setActiveDept] = useState('전체');
 
@@ -191,7 +187,6 @@ export default function DirectoryPage() {
 
   const extOrgs = ORG_GROUPS.find(g => g.label === '외부기관')!.orgs;
 
-  // 외부기관 중 DB에 실제로 있는 것 (000 포함해서 버튼 표시용으로 별도 조회)
   const [orgCounts, setOrgCounts] = useState<Record<string, number>>({});
   useEffect(() => {
     const fetchOrgCounts = async () => {
@@ -260,7 +255,6 @@ export default function DirectoryPage() {
     setTimeout(() => setSavedId(null), 2000);
   };
 
-  // 전체/텍스트 전용 버튼 스타일
   const plainBtn = (active: boolean): React.CSSProperties => ({
     flexShrink: 0, fontSize: 13, padding: '8px 16px', borderRadius: 12,
     cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'inherit',
@@ -272,7 +266,6 @@ export default function DirectoryPage() {
     transition: 'all 0.15s',
   });
 
-  // 학과 버튼 스타일 (헤더 위)
   const deptBtn = (active: boolean): React.CSSProperties => ({
     flexShrink: 0, fontSize: 12, padding: '6px 14px', borderRadius: 20,
     cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'inherit',
@@ -301,7 +294,7 @@ export default function DirectoryPage() {
         <div style={{ padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ background: '#fff', borderRadius: 8, padding: '4px 10px', height: 32, display: 'flex', alignItems: 'center' }}>
-              <img src="/krc-log.jpg" alt="KRC"
+              <img src="/krc-logo.jpg" alt="KRC"
                 onError={e => { (e.target as HTMLImageElement).src = '/krc-logo.jpg'; }}
                 style={{ height: 22, width: 'auto', objectFit: 'contain' }} />
             </div>
@@ -341,7 +334,7 @@ export default function DirectoryPage() {
           </div>
         </div>
 
-        {/* ── 학과 버튼 (헤더 안, 가로스크롤) ── */}
+        {/* ── 학과 버튼 + 드롭다운 (헤더 안) ── */}
         <div style={{ padding: '0 16px 12px' }}>
           <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 9, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 6 }}>학과</p>
           <div style={{ display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none', marginBottom: 6 } as React.CSSProperties}>
@@ -351,7 +344,6 @@ export default function DirectoryPage() {
               </button>
             ))}
           </div>
-          {/* 드롭다운 보조 */}
           <div style={{ position: 'relative' }}>
             <select value={activeDept} onChange={e => setActiveDept(e.target.value)}
               style={{ width: '100%', appearance: 'none', WebkitAppearance: 'none', background: activeDept === '전체' ? 'rgba(255,255,255,0.1)' : '#fff', border: activeDept === '전체' ? '1px solid rgba(255,255,255,0.2)' : '2px solid #fff', borderRadius: 10, padding: '8px 36px 8px 14px', fontSize: 13, color: activeDept === '전체' ? 'rgba(255,255,255,0.7)' : '#1B3F7B', fontWeight: activeDept === '전체' ? 400 : 700, cursor: 'pointer', fontFamily: 'inherit', outline: 'none' } as React.CSSProperties}>
@@ -366,12 +358,13 @@ export default function DirectoryPage() {
             </div>
           </div>
         </div>
+
       </div> {/* 헤더 끝 */}
 
-      {/* ── 기관 필터 (헤더 아래 흰 배경) ── */}
+      {/* ── 기관 필터 (헤더 바로 아래 흰 배경) ── */}
       <div style={{ background: '#fff', padding: '12px 16px', borderBottom: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
 
-        {/* 대분류 */}
+        {/* 대분류 버튼 */}
         <p style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8 }}>기관</p>
         <div style={{ display: 'flex', gap: 8, overflowX: 'auto', scrollbarWidth: 'none', marginBottom: activeGroup === '외부기관' ? 12 : 0 } as React.CSSProperties}>
           <button onClick={() => { setActiveGroup('전체'); setActiveOrg('전체'); setActiveDept('전체'); }}
@@ -449,11 +442,11 @@ export default function DirectoryPage() {
                       {[a.company, a.job_title].filter(Boolean).join(' · ')}
                     </p>
                   )}
-                  {/* ── 소속기관 로고 + 텍스트 ── */}
+                  {/* ── 소속기관 표시 ── */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
                     {org === '한국농어촌공사' ? (
-                      <img src="krc-logo.jpg" alt="KRC"
-                        style={{ height: 16, width: 'auto', objectFit: 'contain' }} />
+                      <img src="/krc-logo.jpg" alt="KRC"
+                        style={{ height: 16, width: 'auto', objectFit: 'contain', maxWidth: 80 }} />
                     ) : (
                       <>
                         {ORG_LOGO[org] && (
