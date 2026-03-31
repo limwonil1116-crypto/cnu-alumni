@@ -19,6 +19,59 @@ interface MyProfile {
   card_image_url?: string;
 }
 
+function EmailEditor({ alumniId, currentEmail }: { alumniId?: string; currentEmail?: string }) {
+  const [email, setEmail] = useState(currentEmail || '');
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+
+  const handleSave = async () => {
+    if (!alumniId) return;
+    setSaving(true);
+    await supabase.from('alumni_master').update({ email }).eq('id', alumniId);
+    setSaving(false);
+    setSaved(true);
+    setEditMode(false);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
+  return (
+    <div style={{ background: '#fff', borderRadius: 14, marginBottom: 10, border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(13,45,110,0.06)', overflow: 'hidden' }}>
+      <div style={{ padding: '10px 16px', borderBottom: '1px solid #f1f5f9', background: '#f8fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <p style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', letterSpacing: 2, textTransform: 'uppercase' }}>이메일</p>
+        <button onClick={() => setEditMode(e => !e)}
+          style={{ background: 'none', border: 'none', fontSize: 12, color: '#1B3F7B', fontWeight: 600, cursor: 'pointer' }}>
+          {editMode ? '취소' : '수정'}
+        </button>
+      </div>
+      <div style={{ padding: '12px 16px' }}>
+        {editMode ? (
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              placeholder="이메일을 입력하세요"
+              type="email"
+              style={{ flex: 1, padding: '9px 12px', border: '1.5px solid #e2e8f0', borderRadius: 10, fontSize: 13, outline: 'none', fontFamily: 'inherit' }} />
+            <button onClick={handleSave} disabled={saving}
+              style={{ background: '#1B3F7B', color: '#fff', border: 'none', borderRadius: 10, padding: '9px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
+              {saving ? '저장중...' : '저장'}
+            </button>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>✉️</div>
+            <p style={{ fontSize: 14, fontWeight: 600, color: email ? '#0f172a' : '#cbd5e1' }}>
+              {email || '이메일을 등록해주세요'}
+            </p>
+            {saved && <span style={{ fontSize: 12, color: '#16a34a', fontWeight: 600 }}>✓ 저장됨</span>}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function MyPage() {
   const router = useRouter();
   const [profile, setProfile] = useState<MyProfile | null>(null);
@@ -105,7 +158,6 @@ export default function MyPage() {
           </button>
         </div>
         <div style={{ padding: '14px 16px 16px', display: 'flex', alignItems: 'center', gap: 14 }}>
-          {/* 프로필 사진 */}
           <div style={{ width: 64, height: 64, borderRadius: 16, background: 'rgba(255,255,255,0.2)', border: '2px solid rgba(255,255,255,0.4)', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             {profile?.photo_url
               ? <img src={profile.photo_url} alt={profile.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -121,9 +173,21 @@ export default function MyPage() {
         </div>
         {/* 뱃지들 */}
         <div style={{ display: 'flex', gap: 6, padding: '0 16px 14px', flexWrap: 'wrap' }}>
-          {profile?.department && <span style={{ background: 'rgba(255,255,255,0.15)', color: '#fff', fontSize: 11, padding: '4px 12px', borderRadius: 20, border: '1px solid rgba(255,255,255,0.2)' }}>{profile.department}</span>}
-          {profile?.graduation_year && <span style={{ background: 'rgba(255,255,255,0.15)', color: '#fff', fontSize: 11, padding: '4px 12px', borderRadius: 20, border: '1px solid rgba(255,255,255,0.2)' }}>{profile.graduation_year}년 졸업</span>}
-          {isNewUser && <span style={{ background: 'rgba(251,191,36,0.25)', color: '#fbbf24', fontSize: 11, padding: '4px 12px', borderRadius: 20, border: '1px solid rgba(251,191,36,0.3)' }}>미등록 동문</span>}
+          {profile?.department && (
+            <span style={{ background: 'rgba(255,255,255,0.15)', color: '#fff', fontSize: 11, padding: '4px 12px', borderRadius: 20, border: '1px solid rgba(255,255,255,0.2)' }}>
+              {profile.department}
+            </span>
+          )}
+          {profile?.graduation_year && (
+            <span style={{ background: 'rgba(255,255,255,0.15)', color: '#fff', fontSize: 11, padding: '4px 12px', borderRadius: 20, border: '1px solid rgba(255,255,255,0.2)' }}>
+              {profile.graduation_year}년 졸업
+            </span>
+          )}
+          {isNewUser && (
+            <span style={{ background: 'rgba(251,191,36,0.25)', color: '#fbbf24', fontSize: 11, padding: '4px 12px', borderRadius: 20, border: '1px solid rgba(251,191,36,0.3)' }}>
+              미등록 동문
+            </span>
+          )}
         </div>
       </div>
 
@@ -142,40 +206,36 @@ export default function MyPage() {
 
         {/* 프로필 수정 / 문의 버튼 */}
         {!isNewUser && profile ? (
-          <Link href={`/directory/${profile.id}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', minHeight: 50, background: 'linear-gradient(135deg, #0d2d6e, #1B3F7B)', color: '#fff', borderRadius: 14, fontSize: 14, fontWeight: 700, textDecoration: 'none', marginBottom: 12, boxShadow: '0 4px 14px rgba(13,45,110,0.3)', gap: 8 }}>
+          <Link href={`/directory/${profile.id}`}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', minHeight: 50, background: 'linear-gradient(135deg, #0d2d6e, #1B3F7B)', color: '#fff', borderRadius: 14, fontSize: 14, fontWeight: 700, textDecoration: 'none', marginBottom: 12, boxShadow: '0 4px 14px rgba(13,45,110,0.3)', gap: 8 }}>
             <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
             프로필 수정하기
           </Link>
         ) : (
-          <button onClick={() => { window.location.href = 'tel:010-4758-1293'; }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', minHeight: 50, background: '#f59e0b', color: '#fff', border: 'none', borderRadius: 14, fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 12, gap: 8 }}>
+          <button onClick={() => { window.location.href = 'tel:010-4758-1293'; }}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', minHeight: 50, background: '#f59e0b', color: '#fff', border: 'none', borderRadius: 14, fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 12, gap: 8 }}>
             📞 동문 등록 문의 (임원일 과장)
           </button>
         )}
 
+        {/* ── 이메일 수정 ── */}
+        {!isNewUser && profile && (
+          <EmailEditor alumniId={profile.id} currentEmail={profile.email} />
+        )}
+
         {/* 연락처 카드 */}
-        {(profile?.phone || profile?.email) && (
+        {profile?.phone && (
           <div style={{ background: '#fff', borderRadius: 14, marginBottom: 10, border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(13,45,110,0.06)', overflow: 'hidden' }}>
             <div style={{ padding: '10px 16px', borderBottom: '1px solid #f1f5f9', background: '#f8fafc' }}>
               <p style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', letterSpacing: 2, textTransform: 'uppercase' }}>연락처</p>
             </div>
-            {profile?.phone && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderBottom: '1px solid #f1f5f9' }}>
-                <div style={{ width: 36, height: 36, borderRadius: 10, background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>📱</div>
-                <div>
-                  <p style={{ fontSize: 10, color: '#94a3b8', marginBottom: 1 }}>휴대폰</p>
-                  <p style={{ fontSize: 14, fontWeight: 600, color: '#0f172a' }}>{profile.phone}</p>
-                </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px' }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>📱</div>
+              <div>
+                <p style={{ fontSize: 10, color: '#94a3b8', marginBottom: 1 }}>휴대폰</p>
+                <p style={{ fontSize: 14, fontWeight: 600, color: '#0f172a' }}>{profile.phone}</p>
               </div>
-            )}
-            {profile?.email && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px' }}>
-                <div style={{ width: 36, height: 36, borderRadius: 10, background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>✉️</div>
-                <div>
-                  <p style={{ fontSize: 10, color: '#94a3b8', marginBottom: 1 }}>이메일</p>
-                  <p style={{ fontSize: 14, fontWeight: 600, color: '#0f172a' }}>{profile.email}</p>
-                </div>
-              </div>
-            )}
+            </div>
           </div>
         )}
 
@@ -228,7 +288,8 @@ export default function MyPage() {
         )}
 
         {/* 접속 로그 */}
-        <Link href="/master/logs" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#fff', borderRadius: 14, padding: '14px 16px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(13,45,110,0.06)', textDecoration: 'none' }}>
+        <Link href="/master/logs"
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#fff', borderRadius: 14, padding: '14px 16px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(13,45,110,0.06)', textDecoration: 'none' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ width: 36, height: 36, borderRadius: 10, background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>📊</div>
             <span style={{ fontSize: 14, fontWeight: 600, color: '#0f172a' }}>접속 로그 확인</span>
