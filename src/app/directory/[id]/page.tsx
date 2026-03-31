@@ -106,7 +106,8 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
   const cardRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState({
-    company: '', job_title: '', region: '', address: '', bio: '', phone: '',
+    company: '', job_title: '', region: '', address: '', bio: '',
+    phone: '', email: '',
     photo_url: '', card_image_url: '', organization: '한국농어촌공사',
   });
 
@@ -135,6 +136,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
         company: p?.company || '', job_title: p?.job_title || '',
         region: p?.region || '', address: p?.address || '',
         bio: p?.bio || '', phone: data.phone || '',
+        email: data.email || '',
         photo_url: p?.photo_url || '', card_image_url: p?.card_image_url || '',
         organization: (data as any).organization || '한국농어촌공사',
       });
@@ -170,10 +172,13 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
 
   const handleSave = async () => {
     setSaving(true);
+    // alumni_master 업데이트 (phone + email + organization)
     await supabase.from('alumni_master').update({
       phone: form.phone || null,
+      email: form.email || null,
       organization: form.organization,
     }).eq('id', id);
+
     if (alumni?.profile_id) {
       await supabase.from('alumni_profiles').update({
         company: form.company || null, job_title: form.job_title || null,
@@ -226,9 +231,9 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
     { label:'지역', key:'region', placeholder:'충남' },
     { label:'주소 (지도 표시용)', key:'address', placeholder:'대전광역시 서구 대덕대로 290번길 27' },
     { label:'휴대폰', key:'phone', placeholder:'01047581293' },
+    { label:'이메일', key:'email', placeholder:'example@ekr.or.kr' },
   ];
 
-  // 기관 로고/이모지 표시 헬퍼
   const OrgBadge = ({ height = 14 }: { height?: number }) => (
     <div style={{ display:'flex', alignItems:'center', gap:5 }}>
       {ORG_LOGO[org] ? (
@@ -282,7 +287,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
         </div>
 
         {/* 뱃지 */}
-        <div style={{ display:'flex', justifyContent:'center', paddingBottom:14, gap:8, flexWrap:'wrap', padding:'0 16px 14px' }}>
+        <div style={{ display:'flex', justifyContent:'center', gap:8, flexWrap:'wrap', padding:'0 16px 14px' }}>
           {alumni.admission_year && (
             <span style={{ background:'rgba(255,255,255,0.15)', color:'#fff', fontSize:11, padding:'4px 14px', borderRadius:20, border:'1px solid rgba(255,255,255,0.2)' }}>
               입학 {alumni.admission_year}년
@@ -293,7 +298,6 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
               {alumni.department}
             </span>
           )}
-          {/* 기관 뱃지 */}
           <span style={{ display:'flex', alignItems:'center', gap:5, background:'rgba(255,255,255,0.15)', color:'#fff', fontSize:11, padding:'4px 10px', borderRadius:20, border:'1px solid rgba(255,255,255,0.2)' }}>
             {ORG_LOGO[org] ? (
               <img src={ORG_LOGO[org]} alt={org}
@@ -359,6 +363,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
           <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12 }}>{bar}<span style={{ fontSize:11, fontWeight:700, color:'#64748b', letterSpacing:1.5, textTransform:'uppercase' as const }}>소속</span></div>
           {editMode ? (
             <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+              {/* 기관 선택 */}
               <div>
                 <p style={{ fontSize:11, color:'#94a3b8', marginBottom:3 }}>소속 기관</p>
                 <div style={{ position:'relative' }}>
@@ -375,17 +380,21 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
                   </div>
                 </div>
               </div>
+              {/* 나머지 필드 (이메일 포함) */}
               {fieldRows.map(f => (
                 <div key={f.key}>
                   <p style={{ fontSize:11, color:'#94a3b8', marginBottom:3 }}>{f.label}</p>
-                  <input value={(form as any)[f.key]} onChange={e => setForm(prev => ({ ...prev, [f.key]: e.target.value }))} placeholder={f.placeholder}
+                  <input
+                    value={(form as any)[f.key]}
+                    onChange={e => setForm(prev => ({ ...prev, [f.key]: e.target.value }))}
+                    placeholder={f.placeholder}
+                    type={f.key === 'email' ? 'email' : 'text'}
                     style={{ width:'100%', padding:'9px 12px', border:'1.5px solid #e2e8f0', borderRadius:10, fontSize:13, outline:'none', boxSizing:'border-box' as const, fontFamily:'inherit' }} />
                 </div>
               ))}
             </div>
           ) : (
             <>
-              {/* 기관 표시 - 로고 + 텍스트 */}
               <div style={{ display:'flex', alignItems:'center', gap:8, padding:'6px 0', borderBottom:'1px solid #f1f5f9' }}>
                 <div style={{ flex:1 }}>
                   <p style={{ fontSize:10, color:'#94a3b8', marginBottom:4 }}>소속 기관</p>
@@ -401,6 +410,16 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
                     <p style={{ fontSize:14, fontWeight:600, color:'#0f172a' }}>{alumni.phone}</p>
                   </div>
                   <button onClick={() => copy(alumni.phone!, '휴대폰')}
+                    style={{ background:'#eff6ff', border:'none', borderRadius:8, padding:'5px 12px', fontSize:11, color:'#1B3F7B', fontWeight:600, cursor:'pointer' }}>복사</button>
+                </div>
+              )}
+              {alumni.email && (
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'6px 0', borderBottom:'1px solid #f1f5f9' }}>
+                  <div>
+                    <p style={{ fontSize:10, color:'#94a3b8', marginBottom:2 }}>이메일</p>
+                    <p style={{ fontSize:14, fontWeight:600, color:'#0f172a' }}>{alumni.email}</p>
+                  </div>
+                  <button onClick={() => copy(alumni.email!, '이메일')}
                     style={{ background:'#eff6ff', border:'none', borderRadius:8, padding:'5px 12px', fontSize:11, color:'#1B3F7B', fontWeight:600, cursor:'pointer' }}>복사</button>
                 </div>
               )}
@@ -493,7 +512,14 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
         {editMode && (
           <button onClick={() => {
             setEditMode(false);
-            setForm({ company: alumni.company||'', job_title: alumni.job_title||'', region: alumni.region||'', address: alumni.address||'', bio: alumni.bio||'', phone: alumni.phone||'', photo_url: alumni.photo_url||'', card_image_url: alumni.card_image_url||'', organization: alumni.organization||'한국농어촌공사' });
+            setForm({
+              company: alumni.company||'', job_title: alumni.job_title||'',
+              region: alumni.region||'', address: alumni.address||'',
+              bio: alumni.bio||'', phone: alumni.phone||'',
+              email: alumni.email||'',
+              photo_url: alumni.photo_url||'', card_image_url: alumni.card_image_url||'',
+              organization: alumni.organization||'한국농어촌공사'
+            });
           }}
             style={{ width:'100%', padding:'14px', background:'#f1f5f9', border:'none', borderRadius:12, fontSize:14, fontWeight:600, color:'#64748b', cursor:'pointer', marginBottom:10, fontFamily:'inherit' }}>
             취소
