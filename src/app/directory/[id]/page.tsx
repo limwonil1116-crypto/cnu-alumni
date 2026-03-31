@@ -89,6 +89,57 @@ function saveContact(alumni: AlumniDetail) {
   URL.revokeObjectURL(url);
 }
 
+// Gemini API로 명함 이미지에서 정보 추출
+async function extractCardInfo(imageUrl: string): Promise<{
+  phone?: string; email?: string; address?: string;
+  company?: string; job_title?: string; office_phone?: string;
+}> {
+  const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+  const imageRes = await fetch(imageUrl);
+  const blob = await imageRes.blob();
+  const base64 = await new Promise<string>(resolve => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
+    reader.readAsDataURL(blob);
+  });
+
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{
+          parts: [
+            {
+              inline_data: {
+                mime_type: blob.type || 'image/jpeg',
+                data: base64,
+              }
+            },
+            {
+              text: `이 명함 이미지에서 다음 정보를 추출해서 JSON 형식으로만 반환해주세요. 없는 항목은 빈 문자열로:
+{
+  "company": "회사명/부서명",
+  "job_title": "직책/직위",
+  "phone": "휴대폰번호 (숫자와 하이픈만, 예: 010-1234-5678)",
+  "office_phone": "사무실전화번호 (숫자와 하이픈만)",
+  "email": "이메일주소",
+  "address": "주소"
+}
+JSON만 반환하고 다른 텍스트는 포함하지 마세요.`
+            }
+          ]
+        }]
+      })
+    }
+  );
+  const data = await res.json();
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+  const clean = text.replace(/```json|```/g, '').trim();
+  return JSON.parse(clean);
+}
+
 export default function ProfileDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
@@ -102,6 +153,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [uploadingCard, setUploadingCard] = useState(false);
   const [contactSaved, setContactSaved] = useState(false);
+  const [extracting, setExtracting] = useState(false);
   const photoRef = useRef<HTMLInputElement>(null);
   const cardRef = useRef<HTMLInputElement>(null);
 
@@ -165,20 +217,40 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
     const file = e.target.files?.[0]; if (!file) return;
     setUploadingCard(true);
     const url = await uploadImage(file, 'cards');
-    if (url) { setForm(f => ({ ...f, card_image_url: url })); showToast('명함 업로드 완료'); }
-    else showToast('업로드 실패');
+    if (url) {
+      setForm(f => ({ ...f, card_image_url: url }));
+      showToast('명함 업로드 완료 - AI 분석 중...');
+      // Gemini로 명함 정보 자동 추출
+      setExtracting(true);
+      try {
+        const info = await extractCardInfo(url);
+        setForm(f => ({
+          ...f,
+          card_image_url: url,
+          company: info.company || f.company,
+          job_title: info.job_title || f.job_title,
+          phone: info.phone || f.phone,
+          email: info.email || f.email,
+          address: info.address || f.address,
+        }));
+        showToast('✨ AI가 명함 정보를 자동 입력했어요!');
+      } catch {
+        showToast('명함 분석 실패 - 직접 입력해주세요');
+      }
+      setExtracting(false);
+    } else {
+      showToast('업로드 실패');
+    }
     setUploadingCard(false);
   };
 
   const handleSave = async () => {
     setSaving(true);
-    // alumni_master 업데이트 (phone + email + organization)
     await supabase.from('alumni_master').update({
       phone: form.phone || null,
       email: form.email || null,
       organization: form.organization,
     }).eq('id', id);
-
     if (alumni?.profile_id) {
       await supabase.from('alumni_profiles').update({
         company: form.company || null, job_title: form.job_title || null,
@@ -208,6 +280,21 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
     setTimeout(() => setContactSaved(false), 2500);
   };
 
+  // 지도앱 열기
+  const openMap = (type: 'kakao' | 'naver' | 'kakaonavi' | 'tmap') => {
+    if (!alumni?.address) return;
+    const addr = encodeURIComponent(alumni.address);
+    const urls: Record<string, [string, string]> = {
+      kakao:     [`kakaomap://search?q=${addr}`, `https://map.kakao.com/link/search/${addr}`],
+      naver:     [`nmap://search?query=${addr}&appname=com.cnu.alumni`, `https://map.naver.com/v5/search/${addr}`],
+      kakaonavi: [`kakaonavi://navigate?dest_name=${addr}`, `https://map.kakao.com/link/search/${addr}`],
+      tmap:      [`tmap://search?name=${addr}`, `https://tmap.life/${addr}`],
+    };
+    const [appUrl, webUrl] = urls[type];
+    window.location.href = appUrl;
+    setTimeout(() => { window.open(webUrl, '_blank'); }, 1500);
+  };
+
   if (loading) return (
     <div style={{ ...F, minHeight:'100dvh', display:'flex', alignItems:'center', justifyContent:'center', background:'#f0f4f8' }}>
       <div style={{ width:32, height:32, border:'3px solid #e2e8f0', borderTop:'3px solid #1B3F7B', borderRadius:'50%', animation:'spin 0.7s linear infinite' }} />
@@ -230,7 +317,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
     { label:'직무/직책', key:'job_title', placeholder:'과장' },
     { label:'지역', key:'region', placeholder:'충남' },
     { label:'주소 (지도 표시용)', key:'address', placeholder:'대전광역시 서구 대덕대로 290번길 27' },
-    { label:'휴대폰', key:'phone', placeholder:'01047581293' },
+    { label:'휴대폰', key:'phone', placeholder:'010-1234-5678' },
     { label:'이메일', key:'email', placeholder:'example@ekr.or.kr' },
   ];
 
@@ -263,7 +350,6 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
           </button>
         </div>
 
-        {/* 프로필 사진 */}
         <div style={{ display:'flex', flexDirection:'column', alignItems:'center', padding:'8px 16px 20px' }}>
           <div style={{ position:'relative', marginBottom:14 }}>
             <div style={{ width:96, height:96, borderRadius:20, background:avatarColor(alumni.name), border:'3px solid rgba(255,255,255,0.4)', overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 4px 16px rgba(0,0,0,0.3)' }}>
@@ -286,7 +372,6 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
           {alumni.company && <p style={{ color:'rgba(255,255,255,0.55)', fontSize:12 }}>{alumni.company}</p>}
         </div>
 
-        {/* 뱃지 */}
         <div style={{ display:'flex', justifyContent:'center', gap:8, flexWrap:'wrap', padding:'0 16px 14px' }}>
           {alumni.admission_year && (
             <span style={{ background:'rgba(255,255,255,0.15)', color:'#fff', fontSize:11, padding:'4px 14px', borderRadius:20, border:'1px solid rgba(255,255,255,0.2)' }}>
@@ -303,9 +388,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
               <img src={ORG_LOGO[org]} alt={org}
                 onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
                 style={{ height:14, width:'auto', objectFit:'contain' }} />
-            ) : ORG_EMOJI[org] ? (
-              <span>{ORG_EMOJI[org]}</span>
-            ) : null}
+            ) : ORG_EMOJI[org] ? <span>{ORG_EMOJI[org]}</span> : null}
             {org}
           </span>
         </div>
@@ -313,9 +396,28 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
 
       <div style={{ flex:1, overflowY:'auto', padding:'14px 14px 40px' }}>
 
-        {editMode && (
-          <div style={{ background:'#eff6ff', border:'1px solid #bfdbfe', borderRadius:12, padding:'10px 14px', marginBottom:12, fontSize:13, color:'#1B3F7B' }}>
-            ✏️ 수정 모드 — 정보를 수정하고 저장 버튼을 눌러주세요
+      {editMode && (
+          <>
+            <div style={{ background:'#eff6ff', border:'1px solid #bfdbfe', borderRadius:12, padding:'10px 14px', marginBottom:8, fontSize:13, color:'#1B3F7B' }}>
+              ✏️ 수정 모드 — 정보를 수정하고 저장 버튼을 눌러주세요
+            </div>
+            <div style={{ background:'linear-gradient(135deg,#f5f3ff,#ede9fe)', border:'1px solid #c4b5fd', borderRadius:12, padding:'12px 14px', marginBottom:12, display:'flex', gap:10, alignItems:'flex-start' }}>
+              <span style={{ fontSize:22, flexShrink:0 }}>✨</span>
+              <div>
+                <p style={{ fontSize:13, fontWeight:700, color:'#5b21b6', marginBottom:3 }}>AI 명함 자동입력 기능</p>
+                <p style={{ fontSize:12, color:'#7c3aed', lineHeight:1.7 }}>
+                  아래 <strong>명함 카드</strong>에서 명함을 촬영하거나 사진을 등록하면<br/>
+                  AI가 자동으로 <strong>회사명, 직책, 전화번호, 이메일, 주소</strong>를 입력해드려요!
+                </p>
+              </div>
+            </div>
+          </>
+        )}
+
+        {extracting && (
+          <div style={{ background:'#f0fdf4', border:'1px solid #86efac', borderRadius:12, padding:'12px 14px', marginBottom:12, fontSize:13, color:'#15803d', display:'flex', alignItems:'center', gap:8 }}>
+            <div style={{ width:16, height:16, border:'2px solid #86efac', borderTop:'2px solid #15803d', borderRadius:'50%', animation:'spin 0.7s linear infinite', flexShrink:0 }} />
+            ✨ AI가 명함에서 정보를 분석 중입니다...
           </div>
         )}
 
@@ -325,31 +427,27 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
             {alumni.phone && (
               <button onClick={handleSaveContact}
                 style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'center', gap:8, padding:'12px', background: contactSaved ? 'linear-gradient(135deg,#16a34a,#15803d)' : 'linear-gradient(135deg,#0d2d6e,#1B3F7B)', border:'none', borderRadius:12, color:'#fff', fontSize:14, fontWeight:700, cursor:'pointer', fontFamily:'inherit', marginBottom:10, boxShadow:'0 3px 10px rgba(13,45,110,0.25)', transition:'all 0.2s' }}>
-                {contactSaved ? (
-                  <><svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>연락처 저장 완료!</>
-                ) : (
-                  <><svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>연락처 저장하기</>
-                )}
+                {contactSaved
+                  ? <><svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>연락처 저장 완료!</>
+                  : <><svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>연락처 저장하기</>
+                }
               </button>
             )}
             <div style={{ display:'flex', gap:8 }}>
               {alumni.phone && (
-                <a href={'tel:' + alumni.phone}
-                  style={{ flex:1, background:'#eff6ff', color:'#1B3F7B', borderRadius:10, padding:'10px', textAlign:'center', fontSize:13, fontWeight:700, textDecoration:'none', display:'flex', flexDirection:'column', alignItems:'center', gap:3 }}>
+                <a href={'tel:' + alumni.phone} style={{ flex:1, background:'#eff6ff', color:'#1B3F7B', borderRadius:10, padding:'10px', textAlign:'center', fontSize:13, fontWeight:700, textDecoration:'none', display:'flex', flexDirection:'column', alignItems:'center', gap:3 }}>
                   <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
                   전화
                 </a>
               )}
               {alumni.phone && (
-                <a href={'sms:' + alumni.phone}
-                  style={{ flex:1, background:'#f8fafc', color:'#475569', borderRadius:10, padding:'10px', textAlign:'center', fontSize:13, fontWeight:700, textDecoration:'none', display:'flex', flexDirection:'column', alignItems:'center', gap:3 }}>
+                <a href={'sms:' + alumni.phone} style={{ flex:1, background:'#f8fafc', color:'#475569', borderRadius:10, padding:'10px', textAlign:'center', fontSize:13, fontWeight:700, textDecoration:'none', display:'flex', flexDirection:'column', alignItems:'center', gap:3 }}>
                   <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                   문자
                 </a>
               )}
               {alumni.email && (
-                <a href={'mailto:' + alumni.email}
-                  style={{ flex:1, background:'#f8fafc', color:'#475569', borderRadius:10, padding:'10px', textAlign:'center', fontSize:13, fontWeight:700, textDecoration:'none', display:'flex', flexDirection:'column', alignItems:'center', gap:3 }}>
+                <a href={'mailto:' + alumni.email} style={{ flex:1, background:'#f8fafc', color:'#475569', borderRadius:10, padding:'10px', textAlign:'center', fontSize:13, fontWeight:700, textDecoration:'none', display:'flex', flexDirection:'column', alignItems:'center', gap:3 }}>
                   <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
                   메일
                 </a>
@@ -363,32 +461,23 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
           <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12 }}>{bar}<span style={{ fontSize:11, fontWeight:700, color:'#64748b', letterSpacing:1.5, textTransform:'uppercase' as const }}>소속</span></div>
           {editMode ? (
             <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-              {/* 기관 선택 */}
               <div>
                 <p style={{ fontSize:11, color:'#94a3b8', marginBottom:3 }}>소속 기관</p>
                 <div style={{ position:'relative' }}>
-                  <select
-                    value={form.organization}
-                    onChange={e => setForm(prev => ({ ...prev, organization: e.target.value }))}
+                  <select value={form.organization} onChange={e => setForm(prev => ({ ...prev, organization: e.target.value }))}
                     style={{ width:'100%', padding:'9px 36px 9px 12px', border:'1.5px solid #e2e8f0', borderRadius:10, fontSize:13, outline:'none', fontFamily:'inherit', appearance:'none', WebkitAppearance:'none', background:'#fff', color:'#0f172a', cursor:'pointer' } as React.CSSProperties}>
-                    {ORG_LIST.map(o => (
-                      <option key={o} value={o}>{o}</option>
-                    ))}
+                    {ORG_LIST.map(o => <option key={o} value={o}>{o}</option>)}
                   </select>
                   <div style={{ position:'absolute', right:10, top:'50%', transform:'translateY(-50%)', pointerEvents:'none' }}>
                     <svg width="14" height="14" fill="none" stroke="#94a3b8" strokeWidth="2" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>
                   </div>
                 </div>
               </div>
-              {/* 나머지 필드 (이메일 포함) */}
               {fieldRows.map(f => (
                 <div key={f.key}>
                   <p style={{ fontSize:11, color:'#94a3b8', marginBottom:3 }}>{f.label}</p>
-                  <input
-                    value={(form as any)[f.key]}
-                    onChange={e => setForm(prev => ({ ...prev, [f.key]: e.target.value }))}
-                    placeholder={f.placeholder}
-                    type={f.key === 'email' ? 'email' : 'text'}
+                  <input value={(form as any)[f.key]} onChange={e => setForm(prev => ({ ...prev, [f.key]: e.target.value }))}
+                    placeholder={f.placeholder} type={f.key === 'email' ? 'email' : 'text'}
                     style={{ width:'100%', padding:'9px 12px', border:'1.5px solid #e2e8f0', borderRadius:10, fontSize:13, outline:'none', boxSizing:'border-box' as const, fontFamily:'inherit' }} />
                 </div>
               ))}
@@ -409,8 +498,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
                     <p style={{ fontSize:10, color:'#94a3b8', marginBottom:2 }}>휴대폰</p>
                     <p style={{ fontSize:14, fontWeight:600, color:'#0f172a' }}>{alumni.phone}</p>
                   </div>
-                  <button onClick={() => copy(alumni.phone!, '휴대폰')}
-                    style={{ background:'#eff6ff', border:'none', borderRadius:8, padding:'5px 12px', fontSize:11, color:'#1B3F7B', fontWeight:600, cursor:'pointer' }}>복사</button>
+                  <button onClick={() => copy(alumni.phone!, '휴대폰')} style={{ background:'#eff6ff', border:'none', borderRadius:8, padding:'5px 12px', fontSize:11, color:'#1B3F7B', fontWeight:600, cursor:'pointer' }}>복사</button>
                 </div>
               )}
               {alumni.email && (
@@ -419,8 +507,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
                     <p style={{ fontSize:10, color:'#94a3b8', marginBottom:2 }}>이메일</p>
                     <p style={{ fontSize:14, fontWeight:600, color:'#0f172a' }}>{alumni.email}</p>
                   </div>
-                  <button onClick={() => copy(alumni.email!, '이메일')}
-                    style={{ background:'#eff6ff', border:'none', borderRadius:8, padding:'5px 12px', fontSize:11, color:'#1B3F7B', fontWeight:600, cursor:'pointer' }}>복사</button>
+                  <button onClick={() => copy(alumni.email!, '이메일')} style={{ background:'#eff6ff', border:'none', borderRadius:8, padding:'5px 12px', fontSize:11, color:'#1B3F7B', fontWeight:600, cursor:'pointer' }}>복사</button>
                 </div>
               )}
               {alumni.region && <InfoRow label="지역" value={'📍 ' + alumni.region} />}
@@ -460,9 +547,9 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
             <div style={{ display:'flex', alignItems:'center', gap:8 }}>{bar}<span style={{ fontSize:11, fontWeight:700, color:'#64748b', letterSpacing:1.5, textTransform:'uppercase' as const }}>명함</span></div>
             {editMode && (
-              <button onClick={() => cardRef.current?.click()} disabled={uploadingCard}
-                style={{ background:'#eff6ff', border:'none', borderRadius:8, padding:'6px 12px', fontSize:12, color:'#1B3F7B', fontWeight:600, cursor:'pointer' }}>
-                {uploadingCard ? '업로드중...' : '명함 등록'}
+              <button onClick={() => cardRef.current?.click()} disabled={uploadingCard || extracting}
+                style={{ background:'linear-gradient(135deg,#7c3aed,#5b21b6)', border:'none', borderRadius:8, padding:'6px 12px', fontSize:12, color:'#fff', fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:4 }}>
+                {uploadingCard ? '업로드중...' : extracting ? '✨AI분석중...' : '✨ 명함 등록 (AI자동입력)'}
               </button>
             )}
           </div>
@@ -474,7 +561,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
           ) : (
             <div onClick={() => editMode && cardRef.current?.click()}
               style={{ background:'#f8fafc', border:'2px dashed #e2e8f0', borderRadius:12, padding:'28px', textAlign:'center', cursor: editMode ? 'pointer' : 'default' }}>
-              <p style={{ fontSize:13, color:'#94a3b8' }}>{editMode ? '클릭해서 명함을 등록하세요' : '등록된 명함이 없습니다'}</p>
+              <p style={{ fontSize:13, color:'#94a3b8' }}>{editMode ? '클릭해서 명함을 등록하세요 (AI가 자동으로 정보를 입력해드려요!)' : '등록된 명함이 없습니다'}</p>
             </div>
           )}
         </div>
@@ -482,23 +569,41 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
         {/* ── 위치 카드 ── */}
         {!editMode && alumni.address && (
           <div style={{ background:'#fff', borderRadius:16, padding:'16px', marginBottom:10, boxShadow:'0 1px 4px rgba(13,45,110,0.07)', border:'1px solid #e2e8f0' }}>
-            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
-              <div style={{ display:'flex', alignItems:'center', gap:8 }}>{bar}<span style={{ fontSize:11, fontWeight:700, color:'#64748b', letterSpacing:1.5, textTransform:'uppercase' as const }}>위치</span></div>
-              <a href={'https://map.kakao.com/link/search/' + encodeURIComponent(alumni.address)} target="_blank" rel="noreferrer"
-                style={{ background:'#FEE500', border:'none', borderRadius:8, padding:'6px 12px', fontSize:12, color:'#191919', fontWeight:700, textDecoration:'none' }}>
-                카카오맵 열기
-              </a>
+            <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10 }}>
+              {bar}<span style={{ fontSize:11, fontWeight:700, color:'#64748b', letterSpacing:1.5, textTransform:'uppercase' as const }}>위치</span>
             </div>
-            <p style={{ fontSize:12, color:'#64748b', marginBottom:10 }}>📍 {alumni.address}</p>
+            <p style={{ fontSize:12, color:'#64748b', marginBottom:12 }}>📍 {alumni.address}</p>
+
+            {/* 지도앱 버튼 4개 */}
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:12 }}>
+              <button onClick={() => openMap('kakao')}
+                style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, background:'#FEE500', border:'none', borderRadius:12, padding:'12px', fontSize:13, fontWeight:700, color:'#191919', cursor:'pointer', fontFamily:'inherit', boxShadow:'0 1px 4px rgba(0,0,0,0.1)' }}>
+                <span style={{ fontSize:18 }}>🗺</span> 카카오맵
+              </button>
+              <button onClick={() => openMap('naver')}
+                style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, background:'#03C75A', border:'none', borderRadius:12, padding:'12px', fontSize:13, fontWeight:700, color:'#fff', cursor:'pointer', fontFamily:'inherit', boxShadow:'0 1px 4px rgba(0,0,0,0.1)' }}>
+                <span style={{ fontSize:18 }}>🧭</span> 네이버맵
+              </button>
+              <button onClick={() => openMap('kakaonavi')}
+                style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, background:'#FF6B35', border:'none', borderRadius:12, padding:'12px', fontSize:13, fontWeight:700, color:'#fff', cursor:'pointer', fontFamily:'inherit', boxShadow:'0 1px 4px rgba(0,0,0,0.1)' }}>
+                <span style={{ fontSize:18 }}>🚗</span> 카카오내비
+              </button>
+              <button onClick={() => openMap('tmap')}
+                style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, background:'#1B6AE4', border:'none', borderRadius:12, padding:'12px', fontSize:13, fontWeight:700, color:'#fff', cursor:'pointer', fontFamily:'inherit', boxShadow:'0 1px 4px rgba(0,0,0,0.1)' }}>
+                <span style={{ fontSize:18 }}>📡</span> T맵
+              </button>
+            </div>
+
+            {/* 지도 미리보기 */}
             {!showMap ? (
               <button onClick={() => setShowMap(true)}
                 style={{ width:'100%', padding:'10px', background:'#f8fafc', border:'1px solid #e2e8f0', borderRadius:10, fontSize:13, color:'#475569', cursor:'pointer', fontFamily:'inherit', fontWeight:500 }}>
-                🗺 지도 보기
+                🗺 지도 미리보기
               </button>
             ) : (
               <>
                 <div style={{ borderRadius:12, overflow:'hidden', border:'1px solid #e2e8f0', marginBottom:8 }}>
-                  <iframe src={'https://map.kakao.com/?q=' + encodeURIComponent(alumni.address)} width="100%" height="200" style={{ border:'none', display:'block' }} title="카카오맵" />
+                  <iframe src={`https://map.kakao.com/?q=${encodeURIComponent(alumni.address)}`} width="100%" height="200" style={{ border:'none', display:'block' }} title="카카오맵" />
                 </div>
                 <button onClick={() => setShowMap(false)}
                   style={{ width:'100%', padding:'8px', background:'#f1f5f9', border:'none', borderRadius:10, fontSize:12, color:'#64748b', cursor:'pointer', fontFamily:'inherit' }}>
@@ -535,7 +640,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
 
       {toast && (
         <div style={{ position:'fixed', bottom:30, left:'50%', transform:'translateX(-50%)', background:'#0f172a', color:'#fff', padding:'10px 22px', borderRadius:50, fontSize:13, fontWeight:500, zIndex:50, whiteSpace:'nowrap', boxShadow:'0 4px 12px rgba(0,0,0,0.3)' }}>
-          ✓ {toast}
+          {toast}
         </div>
       )}
 
