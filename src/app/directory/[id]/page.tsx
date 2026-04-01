@@ -222,6 +222,9 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
   // ── 명함 업로드 + Gemini AI 분석 + Supabase 자동 저장 ──
   const handleCardUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return;
+    // input 초기화 (같은 파일 재선택 가능하게)
+    e.target.value = '';
+
     setUploadingCard(true);
     setExtracting(true);
     showToast('명함 업로드 및 AI 분석 중...');
@@ -235,8 +238,8 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
 
       if (!url) { showToast('업로드 실패'); return; }
 
-      // ── 명함 스캔 데이터가 항상 우선 (있는 항목만 덮어씀) ──
-      const newForm = (prev: typeof form) => ({
+      // ── 명함 스캔 데이터 우선 적용 (있는 항목만 덮어씀) ──
+      setForm(prev => ({
         ...prev,
         card_image_url: url,
         company:   info.company   ? info.company   : prev.company,
@@ -244,8 +247,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
         phone:     info.phone     ? info.phone     : prev.phone,
         email:     info.email     ? info.email     : prev.email,
         address:   info.address   ? info.address   : prev.address,
-      });
-      setForm(newForm);
+      }));
 
       // 변경된 항목 안내
       const changed: string[] = [];
@@ -255,27 +257,35 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
       if (info.email)     changed.push('이메일');
       if (info.address)   changed.push('주소');
 
-      // ── Supabase 자동 저장 (명함이 최신 데이터 기준) ──
-      await supabase.from('alumni_master').update({
-        ...(info.phone ? { phone: info.phone } : {}),
-        ...(info.email ? { email: info.email } : {}),
-      }).eq('id', id);
+      // ── Supabase 자동 저장 (alumni_master) ──
+      if (info.phone || info.email) {
+        await supabase.from('alumni_master').update({
+          ...(info.phone ? { phone: info.phone } : {}),
+          ...(info.email ? { email: info.email } : {}),
+        }).eq('id', id);
+      }
 
-      // alumni_profiles 업데이트
-      const profileUpdate = {
+      // ── alumni_profiles: 기존 프로필 확인 후 update or insert ──
+      const { data: existingProfile } = await supabase
+        .from('alumni_profiles')
+        .select('id')
+        .eq('alumni_id', id)
+        .single();
+
+      const profileData = {
         ...(info.company   ? { company: info.company }     : {}),
         ...(info.job_title ? { job_title: info.job_title } : {}),
         ...(info.address   ? { address: info.address }     : {}),
         card_image_url: url,
       };
 
-      if (alumni?.profile_id) {
+      if (existingProfile) {
         await supabase.from('alumni_profiles')
-          .update(profileUpdate)
-          .eq('id', alumni.profile_id);
+          .update(profileData)
+          .eq('id', existingProfile.id);
       } else {
         await supabase.from('alumni_profiles').insert({
-          alumni_id: id,
+          alumni_id:      id,
           company:        info.company   || null,
           job_title:      info.job_title || null,
           address:        info.address   || null,
@@ -289,7 +299,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
       if (changed.length > 0) {
         showToast(`✨ AI가 ${changed.join(', ')}을(를) 자동 저장했어요!`);
       } else {
-        showToast('명함 등록 완료! (추출된 정보가 없으면 직접 입력해주세요)');
+        showToast('명함 등록 완료! 정보가 없으면 직접 입력해주세요.');
       }
 
     } catch {
@@ -307,13 +317,20 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
       email: form.email || null,
       organization: form.organization,
     }).eq('id', id);
-    if (alumni?.profile_id) {
+
+    const { data: existingProfile } = await supabase
+      .from('alumni_profiles')
+      .select('id')
+      .eq('alumni_id', id)
+      .single();
+
+    if (existingProfile) {
       await supabase.from('alumni_profiles').update({
         company: form.company || null, job_title: form.job_title || null,
         region: form.region || null, address: form.address || null,
         bio: form.bio || null, photo_url: form.photo_url || null,
         card_image_url: form.card_image_url || null,
-      }).eq('id', alumni.profile_id);
+      }).eq('id', existingProfile.id);
     } else {
       await supabase.from('alumni_profiles').insert({
         alumni_id: id,
@@ -609,7 +626,8 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
               </button>
             )}
           </div>
-          <input ref={cardRef} type="file" accept="image/*" capture="environment" style={{ display:'none' }} onChange={handleCardUpload} />
+          {/* capture 속성 제거 → 촬영/갤러리 선택 가능 */}
+          <input ref={cardRef} type="file" accept="image/*" style={{ display:'none' }} onChange={handleCardUpload} />
           {(editMode ? form.card_image_url : alumni.card_image_url) ? (
             <img src={editMode ? form.card_image_url : alumni.card_image_url!} alt="명함"
               onClick={() => !editMode && setShowCard(true)}
@@ -618,7 +636,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
             <div onClick={() => editMode && cardRef.current?.click()}
               style={{ background:'#f8fafc', border:'2px dashed #e2e8f0', borderRadius:12, padding:'28px', textAlign:'center', cursor: editMode ? 'pointer' : 'default' }}>
               <p style={{ fontSize:13, color:'#94a3b8' }}>
-                {editMode ? '📷 클릭해서 명함을 촬영하거나 사진을 등록하세요\nAI가 자동으로 정보를 입력 및 저장해드려요!' : '등록된 명함이 없습니다'}
+                {editMode ? '📷 촬영 또는 갤러리에서 명함을 등록하세요\nAI가 자동으로 정보를 입력 및 저장해드려요!' : '등록된 명함이 없습니다'}
               </p>
             </div>
           )}
@@ -632,26 +650,13 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
             </div>
             <p style={{ fontSize:12, color:'#64748b', marginBottom:12 }}>📍 {alumni.address}</p>
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:12 }}>
-              <button onClick={() => openMap('kakao')}
-                style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, background:'#FEE500', border:'none', borderRadius:12, padding:'12px', fontSize:13, fontWeight:700, color:'#191919', cursor:'pointer', fontFamily:'inherit' }}>
-                🗺 카카오맵
-              </button>
-              <button onClick={() => openMap('naver')}
-                style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, background:'#03C75A', border:'none', borderRadius:12, padding:'12px', fontSize:13, fontWeight:700, color:'#fff', cursor:'pointer', fontFamily:'inherit' }}>
-                🧭 네이버맵
-              </button>
-              <button onClick={() => openMap('kakaonavi')}
-                style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, background:'#FF6B35', border:'none', borderRadius:12, padding:'12px', fontSize:13, fontWeight:700, color:'#fff', cursor:'pointer', fontFamily:'inherit' }}>
-                🚗 카카오내비
-              </button>
-              <button onClick={() => openMap('tmap')}
-                style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, background:'#1B6AE4', border:'none', borderRadius:12, padding:'12px', fontSize:13, fontWeight:700, color:'#fff', cursor:'pointer', fontFamily:'inherit' }}>
-                📡 T맵
-              </button>
+              <button onClick={() => openMap('kakao')} style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, background:'#FEE500', border:'none', borderRadius:12, padding:'12px', fontSize:13, fontWeight:700, color:'#191919', cursor:'pointer', fontFamily:'inherit' }}>🗺 카카오맵</button>
+              <button onClick={() => openMap('naver')} style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, background:'#03C75A', border:'none', borderRadius:12, padding:'12px', fontSize:13, fontWeight:700, color:'#fff', cursor:'pointer', fontFamily:'inherit' }}>🧭 네이버맵</button>
+              <button onClick={() => openMap('kakaonavi')} style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, background:'#FF6B35', border:'none', borderRadius:12, padding:'12px', fontSize:13, fontWeight:700, color:'#fff', cursor:'pointer', fontFamily:'inherit' }}>🚗 카카오내비</button>
+              <button onClick={() => openMap('tmap')} style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, background:'#1B6AE4', border:'none', borderRadius:12, padding:'12px', fontSize:13, fontWeight:700, color:'#fff', cursor:'pointer', fontFamily:'inherit' }}>📡 T맵</button>
             </div>
             {!showMap ? (
-              <button onClick={() => setShowMap(true)}
-                style={{ width:'100%', padding:'10px', background:'#f8fafc', border:'1px solid #e2e8f0', borderRadius:10, fontSize:13, color:'#475569', cursor:'pointer', fontFamily:'inherit', fontWeight:500 }}>
+              <button onClick={() => setShowMap(true)} style={{ width:'100%', padding:'10px', background:'#f8fafc', border:'1px solid #e2e8f0', borderRadius:10, fontSize:13, color:'#475569', cursor:'pointer', fontFamily:'inherit', fontWeight:500 }}>
                 🗺 지도 미리보기
               </button>
             ) : (
@@ -659,8 +664,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
                 <div style={{ borderRadius:12, overflow:'hidden', border:'1px solid #e2e8f0', marginBottom:8 }}>
                   <iframe src={`https://map.kakao.com/?q=${encodeURIComponent(alumni.address)}`} width="100%" height="200" style={{ border:'none', display:'block' }} title="카카오맵" />
                 </div>
-                <button onClick={() => setShowMap(false)}
-                  style={{ width:'100%', padding:'8px', background:'#f1f5f9', border:'none', borderRadius:10, fontSize:12, color:'#64748b', cursor:'pointer', fontFamily:'inherit' }}>
+                <button onClick={() => setShowMap(false)} style={{ width:'100%', padding:'8px', background:'#f1f5f9', border:'none', borderRadius:10, fontSize:12, color:'#64748b', cursor:'pointer', fontFamily:'inherit' }}>
                   지도 닫기
                 </button>
               </>
