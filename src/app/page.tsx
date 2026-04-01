@@ -82,7 +82,17 @@ export default function StartPage() {
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, [router]);
 
-  const handleInstall = () => setShowInstallGuide(true);
+  const handleInstall = async () => {
+    if (deferredPrompt) {
+      // Android 크롬: 자동 설치 팝업
+      deferredPrompt.prompt();
+      const result = await deferredPrompt.userChoice;
+      if (result.outcome === 'accepted') setDeferredPrompt(null);
+    } else {
+      // iOS 또는 기타: 안내 팝업
+      setShowInstallGuide(true);
+    }
+  };
 
   const handleShare = async () => {
     try {
