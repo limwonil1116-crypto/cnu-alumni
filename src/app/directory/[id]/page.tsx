@@ -89,18 +89,19 @@ function saveContact(alumni: AlumniDetail) {
   URL.revokeObjectURL(url);
 }
 
-// Gemini API로 명함 이미지에서 정보 추출
-async function extractCardInfo(imageUrl: string): Promise<{
+// ── Gemini API: 파일을 직접 base64로 변환 후 분석 ──
+async function extractCardInfo(file: File): Promise<{
   phone?: string; email?: string; address?: string;
-  company?: string; job_title?: string; office_phone?: string;
+  company?: string; job_title?: string;
 }> {
   const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-  const imageRes = await fetch(imageUrl);
-  const blob = await imageRes.blob();
-  const base64 = await new Promise<string>(resolve => {
+  if (!apiKey) throw new Error('API 키 없음');
+
+  const base64 = await new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
     reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
-    reader.readAsDataURL(blob);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
   });
 
   const res = await fetch(
@@ -113,31 +114,36 @@ async function extractCardInfo(imageUrl: string): Promise<{
           parts: [
             {
               inline_data: {
-                mime_type: blob.type || 'image/jpeg',
+                mime_type: file.type || 'image/jpeg',
                 data: base64,
               }
             },
             {
-              text: `이 명함 이미지에서 다음 정보를 추출해서 JSON 형식으로만 반환해주세요. 없는 항목은 빈 문자열로:
+              text: `이 명함 이미지에서 정보를 추출해서 아래 JSON 형식으로만 반환하세요. 없는 항목은 빈 문자열:
 {
-  "company": "회사명/부서명",
-  "job_title": "직책/직위",
-  "phone": "휴대폰번호 (숫자와 하이픈만, 예: 010-1234-5678)",
-  "office_phone": "사무실전화번호 (숫자와 하이픈만)",
+  "company": "회사명 또는 부서명",
+  "job_title": "직책 또는 직위",
+  "phone": "휴대폰번호 (010으로 시작, 하이픈 포함, 예: 010-1234-5678)",
   "email": "이메일주소",
   "address": "주소"
 }
-JSON만 반환하고 다른 텍스트는 포함하지 마세요.`
+반드시 JSON만 반환하고 다른 텍스트 없이.`
             }
           ]
         }]
       })
     }
   );
+
+  if (!res.ok) throw new Error('Gemini API 오류');
   const data = await res.json();
   const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
   const clean = text.replace(/```json|```/g, '').trim();
-  return JSON.parse(clean);
+  try {
+    return JSON.parse(clean);
+  } catch {
+    return {};
+  }
 }
 
 export default function ProfileDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -198,7 +204,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
 
   useEffect(() => { fetchData(); }, [id]);
 
-  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 2500); };
+  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 3000); };
   const copy = async (text: string, label: string) => {
     await navigator.clipboard.writeText(text).catch(() => {});
     showToast(label + ' 복사됨');
@@ -213,35 +219,85 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
     setUploadingPhoto(false);
   };
 
+  // ── 명함 업로드 + Gemini AI 분석 + Supabase 자동 저장 ──
   const handleCardUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return;
     setUploadingCard(true);
-    const url = await uploadImage(file, 'cards');
-    if (url) {
-      setForm(f => ({ ...f, card_image_url: url }));
-      showToast('명함 업로드 완료 - AI 분석 중...');
-      // Gemini로 명함 정보 자동 추출
-      setExtracting(true);
-      try {
-        const info = await extractCardInfo(url);
-        setForm(f => ({
-          ...f,
+    setExtracting(true);
+    showToast('명함 업로드 및 AI 분석 중...');
+
+    try {
+      // 업로드와 AI 분석 동시 진행
+      const [url, info] = await Promise.all([
+        uploadImage(file, 'cards'),
+        extractCardInfo(file),
+      ]);
+
+      if (!url) { showToast('업로드 실패'); return; }
+
+      // ── 명함 스캔 데이터가 항상 우선 (있는 항목만 덮어씀) ──
+      const newForm = (prev: typeof form) => ({
+        ...prev,
+        card_image_url: url,
+        company:   info.company   ? info.company   : prev.company,
+        job_title: info.job_title ? info.job_title : prev.job_title,
+        phone:     info.phone     ? info.phone     : prev.phone,
+        email:     info.email     ? info.email     : prev.email,
+        address:   info.address   ? info.address   : prev.address,
+      });
+      setForm(newForm);
+
+      // 변경된 항목 안내
+      const changed: string[] = [];
+      if (info.company)   changed.push('회사명');
+      if (info.job_title) changed.push('직책');
+      if (info.phone)     changed.push('전화번호');
+      if (info.email)     changed.push('이메일');
+      if (info.address)   changed.push('주소');
+
+      // ── Supabase 자동 저장 (명함이 최신 데이터 기준) ──
+      await supabase.from('alumni_master').update({
+        ...(info.phone ? { phone: info.phone } : {}),
+        ...(info.email ? { email: info.email } : {}),
+      }).eq('id', id);
+
+      // alumni_profiles 업데이트
+      const profileUpdate = {
+        ...(info.company   ? { company: info.company }     : {}),
+        ...(info.job_title ? { job_title: info.job_title } : {}),
+        ...(info.address   ? { address: info.address }     : {}),
+        card_image_url: url,
+      };
+
+      if (alumni?.profile_id) {
+        await supabase.from('alumni_profiles')
+          .update(profileUpdate)
+          .eq('id', alumni.profile_id);
+      } else {
+        await supabase.from('alumni_profiles').insert({
+          alumni_id: id,
+          company:        info.company   || null,
+          job_title:      info.job_title || null,
+          address:        info.address   || null,
           card_image_url: url,
-          company: info.company || f.company,
-          job_title: info.job_title || f.job_title,
-          phone: info.phone || f.phone,
-          email: info.email || f.email,
-          address: info.address || f.address,
-        }));
-        showToast('✨ AI가 명함 정보를 자동 입력했어요!');
-      } catch {
-        showToast('명함 분석 실패 - 직접 입력해주세요');
+        });
       }
+
+      // 최신 데이터 다시 불러오기
+      await fetchData();
+
+      if (changed.length > 0) {
+        showToast(`✨ AI가 ${changed.join(', ')}을(를) 자동 저장했어요!`);
+      } else {
+        showToast('명함 등록 완료! (추출된 정보가 없으면 직접 입력해주세요)');
+      }
+
+    } catch {
+      showToast('AI 분석 실패 - 직접 입력 후 저장해주세요');
+    } finally {
+      setUploadingCard(false);
       setExtracting(false);
-    } else {
-      showToast('업로드 실패');
     }
-    setUploadingCard(false);
   };
 
   const handleSave = async () => {
@@ -280,7 +336,6 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
     setTimeout(() => setContactSaved(false), 2500);
   };
 
-  // 지도앱 열기
   const openMap = (type: 'kakao' | 'naver' | 'kakaonavi' | 'tmap') => {
     if (!alumni?.address) return;
     const addr = encodeURIComponent(alumni.address);
@@ -396,7 +451,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
 
       <div style={{ flex:1, overflowY:'auto', padding:'14px 14px 40px' }}>
 
-      {editMode && (
+        {editMode && (
           <>
             <div style={{ background:'#eff6ff', border:'1px solid #bfdbfe', borderRadius:12, padding:'10px 14px', marginBottom:8, fontSize:13, color:'#1B3F7B' }}>
               ✏️ 수정 모드 — 정보를 수정하고 저장 버튼을 눌러주세요
@@ -407,7 +462,8 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
                 <p style={{ fontSize:13, fontWeight:700, color:'#5b21b6', marginBottom:3 }}>AI 명함 자동입력 기능</p>
                 <p style={{ fontSize:12, color:'#7c3aed', lineHeight:1.7 }}>
                   아래 <strong>명함 카드</strong>에서 명함을 촬영하거나 사진을 등록하면<br/>
-                  AI가 자동으로 <strong>회사명, 직책, 전화번호, 이메일, 주소</strong>를 입력해드려요!
+                  AI가 자동으로 <strong>회사명, 직책, 전화번호, 이메일, 주소</strong>를<br/>
+                  입력하고 <strong>즉시 저장</strong>해드려요!
                 </p>
               </div>
             </div>
@@ -548,12 +604,12 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
             <div style={{ display:'flex', alignItems:'center', gap:8 }}>{bar}<span style={{ fontSize:11, fontWeight:700, color:'#64748b', letterSpacing:1.5, textTransform:'uppercase' as const }}>명함</span></div>
             {editMode && (
               <button onClick={() => cardRef.current?.click()} disabled={uploadingCard || extracting}
-                style={{ background:'linear-gradient(135deg,#7c3aed,#5b21b6)', border:'none', borderRadius:8, padding:'6px 12px', fontSize:12, color:'#fff', fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:4 }}>
-                {uploadingCard ? '업로드중...' : extracting ? '✨AI분석중...' : '✨ 명함 등록 (AI자동입력)'}
+                style={{ background:'linear-gradient(135deg,#7c3aed,#5b21b6)', border:'none', borderRadius:8, padding:'6px 12px', fontSize:12, color:'#fff', fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:4, fontFamily:'inherit' }}>
+                {uploadingCard || extracting ? '⏳ 분석중...' : '✨ 명함 등록 (AI자동입력)'}
               </button>
             )}
           </div>
-          <input ref={cardRef} type="file" accept="image/*" style={{ display:'none' }} onChange={handleCardUpload} />
+          <input ref={cardRef} type="file" accept="image/*" capture="environment" style={{ display:'none' }} onChange={handleCardUpload} />
           {(editMode ? form.card_image_url : alumni.card_image_url) ? (
             <img src={editMode ? form.card_image_url : alumni.card_image_url!} alt="명함"
               onClick={() => !editMode && setShowCard(true)}
@@ -561,7 +617,9 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
           ) : (
             <div onClick={() => editMode && cardRef.current?.click()}
               style={{ background:'#f8fafc', border:'2px dashed #e2e8f0', borderRadius:12, padding:'28px', textAlign:'center', cursor: editMode ? 'pointer' : 'default' }}>
-              <p style={{ fontSize:13, color:'#94a3b8' }}>{editMode ? '클릭해서 명함을 등록하세요 (AI가 자동으로 정보를 입력해드려요!)' : '등록된 명함이 없습니다'}</p>
+              <p style={{ fontSize:13, color:'#94a3b8' }}>
+                {editMode ? '📷 클릭해서 명함을 촬영하거나 사진을 등록하세요\nAI가 자동으로 정보를 입력 및 저장해드려요!' : '등록된 명함이 없습니다'}
+              </p>
             </div>
           )}
         </div>
@@ -573,28 +631,24 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
               {bar}<span style={{ fontSize:11, fontWeight:700, color:'#64748b', letterSpacing:1.5, textTransform:'uppercase' as const }}>위치</span>
             </div>
             <p style={{ fontSize:12, color:'#64748b', marginBottom:12 }}>📍 {alumni.address}</p>
-
-            {/* 지도앱 버튼 4개 */}
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:12 }}>
               <button onClick={() => openMap('kakao')}
-                style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, background:'#FEE500', border:'none', borderRadius:12, padding:'12px', fontSize:13, fontWeight:700, color:'#191919', cursor:'pointer', fontFamily:'inherit', boxShadow:'0 1px 4px rgba(0,0,0,0.1)' }}>
-                <span style={{ fontSize:18 }}>🗺</span> 카카오맵
+                style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, background:'#FEE500', border:'none', borderRadius:12, padding:'12px', fontSize:13, fontWeight:700, color:'#191919', cursor:'pointer', fontFamily:'inherit' }}>
+                🗺 카카오맵
               </button>
               <button onClick={() => openMap('naver')}
-                style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, background:'#03C75A', border:'none', borderRadius:12, padding:'12px', fontSize:13, fontWeight:700, color:'#fff', cursor:'pointer', fontFamily:'inherit', boxShadow:'0 1px 4px rgba(0,0,0,0.1)' }}>
-                <span style={{ fontSize:18 }}>🧭</span> 네이버맵
+                style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, background:'#03C75A', border:'none', borderRadius:12, padding:'12px', fontSize:13, fontWeight:700, color:'#fff', cursor:'pointer', fontFamily:'inherit' }}>
+                🧭 네이버맵
               </button>
               <button onClick={() => openMap('kakaonavi')}
-                style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, background:'#FF6B35', border:'none', borderRadius:12, padding:'12px', fontSize:13, fontWeight:700, color:'#fff', cursor:'pointer', fontFamily:'inherit', boxShadow:'0 1px 4px rgba(0,0,0,0.1)' }}>
-                <span style={{ fontSize:18 }}>🚗</span> 카카오내비
+                style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, background:'#FF6B35', border:'none', borderRadius:12, padding:'12px', fontSize:13, fontWeight:700, color:'#fff', cursor:'pointer', fontFamily:'inherit' }}>
+                🚗 카카오내비
               </button>
               <button onClick={() => openMap('tmap')}
-                style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, background:'#1B6AE4', border:'none', borderRadius:12, padding:'12px', fontSize:13, fontWeight:700, color:'#fff', cursor:'pointer', fontFamily:'inherit', boxShadow:'0 1px 4px rgba(0,0,0,0.1)' }}>
-                <span style={{ fontSize:18 }}>📡</span> T맵
+                style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, background:'#1B6AE4', border:'none', borderRadius:12, padding:'12px', fontSize:13, fontWeight:700, color:'#fff', cursor:'pointer', fontFamily:'inherit' }}>
+                📡 T맵
               </button>
             </div>
-
-            {/* 지도 미리보기 */}
             {!showMap ? (
               <button onClick={() => setShowMap(true)}
                 style={{ width:'100%', padding:'10px', background:'#f8fafc', border:'1px solid #e2e8f0', borderRadius:10, fontSize:13, color:'#475569', cursor:'pointer', fontFamily:'inherit', fontWeight:500 }}>
