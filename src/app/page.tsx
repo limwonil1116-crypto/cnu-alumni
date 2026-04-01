@@ -311,17 +311,17 @@ export default function StartPage() {
                     </p>
                   </div>
                   {/* Safari로 열기 버튼 */}
-                  
-                    href="x-web-search://?https://cnu-alumni.vercel.app"
-                    onClick={e => {
-                      // x-web-search 안되면 그냥 링크 복사 안내
+                  <button
+                    onClick={() => {
+                      window.location.href = 'x-web-search://?https://cnu-alumni.vercel.app';
                       setTimeout(() => {
                         navigator.clipboard.writeText('https://cnu-alumni.vercel.app').catch(() => {});
-                      }, 300);
+                        alert('Safari로 이동이 안 되면\n주소를 복사해서 Safari에서 열어주세요!');
+                      }, 1500);
                     }}
-                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', background: '#1B3F7B', border: 'none', borderRadius: 14, padding: '14px', fontSize: 15, fontWeight: 700, color: '#fff', textDecoration: 'none', marginBottom: 10, boxShadow: '0 4px 12px rgba(27,63,123,0.3)' }}>
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', background: '#1B3F7B', border: 'none', borderRadius: 14, padding: '14px', fontSize: 15, fontWeight: 700, color: '#fff', marginBottom: 10, boxShadow: '0 4px 12px rgba(27,63,123,0.3)', cursor: 'pointer', fontFamily: 'inherit' }}>
                     🧭 Safari로 열기
-                  </a>
+                  </button>
                   <p style={{ fontSize: 11, color: '#9ca3af', textAlign: 'center', marginBottom: 12 }}>또는 Safari에서 직접 접속하세요</p>
                   <div style={{ background: '#f8fafc', borderRadius: 10, padding: '10px 14px', fontSize: 13, color: '#374151', textAlign: 'center', border: '1px solid #e2e8f0' }}>
                     <strong style={{ color: '#1B3F7B' }}>cnu-alumni.vercel.app</strong>
