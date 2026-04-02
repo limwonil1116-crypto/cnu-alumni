@@ -1,8 +1,10 @@
 'use client';
-import { use, useState, useEffect, useRef } from 'react';
+import { use, useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { uploadImage } from '@/lib/uploadImage';
+import ReactCrop, { type Crop, centerCrop, makeAspectCrop } from 'react-image-crop';
+import 'react-image-crop/dist/ReactCrop.css';
 
 interface AlumniDetail {
   id: string;
@@ -89,7 +91,6 @@ function saveContact(alumni: AlumniDetail) {
   URL.revokeObjectURL(url);
 }
 
-// ── Gemini API: Next.js API Route 통해서 호출 (브라우저 직접 호출 차단 우회) ──
 async function extractCardInfo(file: File): Promise<{
   phone?: string; email?: string; address?: string;
   company?: string; job_title?: string;
@@ -100,13 +101,11 @@ async function extractCardInfo(file: File): Promise<{
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
-
   const res = await fetch('/api/ocr', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ imageBase64: base64 }),
   });
-
   if (!res.ok) throw new Error('API 오류');
   const data = await res.json();
   console.log('✨ Gemini 분석 결과:', data);
@@ -127,6 +126,16 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
   const [uploadingCard, setUploadingCard] = useState(false);
   const [contactSaved, setContactSaved] = useState(false);
   const [extracting, setExtracting] = useState(false);
+
+  // 이미지 편집 관련
+  const [showCropModal, setShowCropModal] = useState(false);
+  const [cropSrc, setCropSrc] = useState('');
+  const [cropFile, setCropFile] = useState<File | null>(null);
+  const [crop, setCrop] = useState<Crop>();
+  const [completedCrop, setCompletedCrop] = useState<Crop>();
+  const [rotation, setRotation] = useState(0);
+  const imgRef = useRef<HTMLImageElement>(null);
+
   const photoRef = useRef<HTMLInputElement>(null);
   const cardRef = useRef<HTMLInputElement>(null);
   const cardCameraRef = useRef<HTMLInputElement>(null);
@@ -187,11 +196,95 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
     setUploadingPhoto(false);
   };
 
-  // ── 명함 업로드 + Gemini AI 분석 + Supabase 자동 저장 ──
-  const handleCardUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]; if (!file) return;
+  // 파일 선택 → 편집 모달 열기
+  const handleCardFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
     e.target.value = '';
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setCropSrc(reader.result as string);
+      setCropFile(file);
+      setCrop(undefined);
+      setCompletedCrop(undefined);
+      setRotation(0);
+      setShowCropModal(true);
+    };
+    reader.readAsDataURL(file);
+  };
 
+  const onImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    const { width, height } = e.currentTarget;
+    const c = centerCrop(
+      makeAspectCrop({ unit: '%', width: 90 }, 16 / 9, width, height),
+      width, height
+    );
+    setCrop(c);
+  };
+
+  // 편집 완료 → 업로드 + AI 분석
+  const handleCropComplete = useCallback(async () => {
+    if (!cropFile) return;
+
+    let fileToUpload = cropFile;
+
+    // crop이 있으면 자르기 적용
+    if (completedCrop && imgRef.current && completedCrop.width > 0 && completedCrop.height > 0) {
+      const canvas = document.createElement('canvas');
+      const img = imgRef.current;
+      const scaleX = img.naturalWidth / img.width;
+      const scaleY = img.naturalHeight / img.height;
+      canvas.width = completedCrop.width * scaleX;
+      canvas.height = completedCrop.height * scaleY;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        // 회전 적용
+        if (rotation !== 0) {
+          const rad = (rotation * Math.PI) / 180;
+          const cos = Math.abs(Math.cos(rad));
+          const sin = Math.abs(Math.sin(rad));
+          canvas.width = canvas.height * sin + canvas.width * cos;
+          canvas.height = canvas.height * cos + canvas.width * sin;
+          ctx.translate(canvas.width / 2, canvas.height / 2);
+          ctx.rotate(rad);
+          ctx.translate(-canvas.width / 2, -canvas.height / 2);
+        }
+        ctx.drawImage(
+          img,
+          completedCrop.x * scaleX, completedCrop.y * scaleY,
+          completedCrop.width * scaleX, completedCrop.height * scaleY,
+          0, 0, completedCrop.width * scaleX, completedCrop.height * scaleY
+        );
+        const blob = await new Promise<Blob>(resolve => canvas.toBlob(b => resolve(b!), 'image/jpeg', 0.95));
+        fileToUpload = new File([blob], cropFile.name, { type: 'image/jpeg' });
+      }
+    } else if (rotation !== 0) {
+      // 자르기 없이 회전만
+      const img = imgRef.current;
+      if (img) {
+        const canvas = document.createElement('canvas');
+        const rad = (rotation * Math.PI) / 180;
+        const cos = Math.abs(Math.cos(rad));
+        const sin = Math.abs(Math.sin(rad));
+        canvas.width = img.naturalHeight * sin + img.naturalWidth * cos;
+        canvas.height = img.naturalHeight * cos + img.naturalWidth * sin;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.translate(canvas.width / 2, canvas.height / 2);
+          ctx.rotate(rad);
+          ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2);
+          const blob = await new Promise<Blob>(resolve => canvas.toBlob(b => resolve(b!), 'image/jpeg', 0.95));
+          fileToUpload = new File([blob], cropFile.name, { type: 'image/jpeg' });
+        }
+      }
+    }
+
+    setShowCropModal(false);
+    await handleCardUploadWithFile(fileToUpload);
+  }, [completedCrop, cropFile, rotation]);
+
+  // 실제 업로드 + AI 분석 + Supabase 저장
+  const handleCardUploadWithFile = async (file: File) => {
     setUploadingCard(true);
     setExtracting(true);
     showToast('명함 업로드 및 AI 분석 중...');
@@ -204,7 +297,6 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
 
       if (!url) { showToast('업로드 실패'); return; }
 
-      // ── 명함 스캔 데이터 우선 적용 ──
       setForm(prev => ({
         ...prev,
         card_image_url: url,
@@ -222,7 +314,6 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
       if (info.email)     changed.push('이메일');
       if (info.address)   changed.push('주소');
 
-      // ── Supabase 자동 저장 ──
       if (info.phone || info.email) {
         await supabase.from('alumni_master').update({
           ...(info.phone ? { phone: info.phone } : {}),
@@ -431,9 +522,8 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
               <div>
                 <p style={{ fontSize:13, fontWeight:700, color:'#5b21b6', marginBottom:3 }}>AI 명함 자동입력 기능</p>
                 <p style={{ fontSize:12, color:'#7c3aed', lineHeight:1.7 }}>
-                  아래 <strong>명함 카드</strong>에서 명함을 촬영하거나 갤러리에서 등록하면<br/>
-                  AI가 자동으로 <strong>회사명, 직책, 전화번호, 이메일, 주소</strong>를<br/>
-                  입력하고 <strong>즉시 저장</strong>해드려요!
+                  아래 명함 카드에서 📷 촬영 또는 🖼 갤러리로 등록하면<br/>
+                  편집(자르기·회전) 후 AI가 자동으로 정보를 저장해드려요!
                 </p>
               </div>
             </div>
@@ -580,15 +670,13 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
                 </button>
                 <button onClick={() => cardRef.current?.click()} disabled={uploadingCard || extracting}
                   style={{ background:'linear-gradient(135deg,#7c3aed,#5b21b6)', border:'none', borderRadius:8, padding:'6px 10px', fontSize:12, color:'#fff', fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>
-                  {uploadingCard || extracting ? '⏳ 분석중...' : '🖼 갤러리'}
+                  {uploadingCard || extracting ? '⏳' : '🖼 갤러리'}
                 </button>
               </div>
             )}
           </div>
-          {/* 갤러리 선택 */}
-          <input ref={cardRef} type="file" accept="image/*" style={{ display:'none' }} onChange={handleCardUpload} />
-          {/* 카메라 촬영 */}
-          <input ref={cardCameraRef} type="file" accept="image/*" capture="environment" style={{ display:'none' }} onChange={handleCardUpload} />
+          <input ref={cardRef} type="file" accept="image/*" style={{ display:'none' }} onChange={handleCardFileSelect} />
+          <input ref={cardCameraRef} type="file" accept="image/*" capture="environment" style={{ display:'none' }} onChange={handleCardFileSelect} />
 
           {(editMode ? form.card_image_url : alumni.card_image_url) ? (
             <img src={editMode ? form.card_image_url : alumni.card_image_url!} alt="명함"
@@ -597,7 +685,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
           ) : (
             <div style={{ background:'#f8fafc', border:'2px dashed #e2e8f0', borderRadius:12, padding:'28px', textAlign:'center' }}>
               <p style={{ fontSize:13, color:'#94a3b8' }}>
-                {editMode ? '📷 촬영 또는 🖼 갤러리 버튼으로 명함을 등록하세요\nAI가 자동으로 정보를 입력 및 저장해드려요!' : '등록된 명함이 없습니다'}
+                {editMode ? '📷 촬영 또는 🖼 갤러리로 명함을 등록하세요\n편집 후 AI가 자동으로 정보를 저장해드려요!' : '등록된 명함이 없습니다'}
               </p>
             </div>
           )}
@@ -650,6 +738,53 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
           </button>
         )}
       </div>
+
+      {/* ── 이미지 편집 모달 ── */}
+      {showCropModal && cropSrc && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.92)', zIndex:200, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:16, fontFamily:'inherit' }}>
+          <p style={{ color:'#fff', fontSize:15, fontWeight:700, marginBottom:4 }}>명함 편집</p>
+          <p style={{ color:'rgba(255,255,255,0.5)', fontSize:11, marginBottom:12 }}>드래그로 자르기 영역 선택 · 회전 버튼으로 방향 조정</p>
+
+          <div style={{ maxWidth:380, width:'100%', maxHeight:'55vh', overflow:'auto', marginBottom:16, borderRadius:12 }}>
+            <ReactCrop
+              crop={crop}
+              onChange={c => setCrop(c)}
+              onComplete={c => setCompletedCrop(c)}
+            >
+              <img
+                ref={imgRef}
+                src={cropSrc}
+                onLoad={onImageLoad}
+                style={{
+                  maxWidth:'100%',
+                  transform:`rotate(${rotation}deg)`,
+                  transition:'transform 0.25s',
+                  display:'block',
+                }}
+              />
+            </ReactCrop>
+          </div>
+
+          <div style={{ display:'flex', gap:8, marginBottom:12, flexWrap:'wrap', justifyContent:'center' }}>
+            <button
+              onClick={() => setRotation(r => (r + 90) % 360)}
+              style={{ background:'rgba(255,255,255,0.15)', border:'1px solid rgba(255,255,255,0.3)', borderRadius:10, padding:'9px 16px', color:'#fff', fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>
+              🔄 90° 회전
+            </button>
+            <button
+              onClick={handleCropComplete}
+              disabled={uploadingCard || extracting}
+              style={{ background:'#7c3aed', border:'none', borderRadius:10, padding:'9px 20px', color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:'inherit', opacity: uploadingCard || extracting ? 0.7 : 1 }}>
+              {uploadingCard || extracting ? '⏳ 분석중...' : '✅ 완료 및 AI 분석'}
+            </button>
+            <button
+              onClick={() => { setShowCropModal(false); setCropSrc(''); }}
+              style={{ background:'rgba(255,255,255,0.1)', border:'1px solid rgba(255,255,255,0.2)', borderRadius:10, padding:'9px 16px', color:'#fff', fontSize:13, cursor:'pointer', fontFamily:'inherit' }}>
+              취소
+            </button>
+          </div>
+        </div>
+      )}
 
       {showCard && alumni.card_image_url && (
         <div onClick={() => setShowCard(false)} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.88)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:50, padding:24 }}>
