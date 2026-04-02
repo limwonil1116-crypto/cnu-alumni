@@ -738,6 +738,41 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
           </button>
         )}
       </div>
+      
+      {/* ── AI 분석 로딩 오버레이 ── */}
+      {extracting && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.75)', zIndex:300, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', fontFamily:'inherit' }}>
+          <div style={{ background:'#fff', borderRadius:24, padding:'32px 28px', textAlign:'center', maxWidth:280, width:'90%', boxShadow:'0 20px 60px rgba(0,0,0,0.4)' }}>
+            <div style={{ fontSize:40, marginBottom:16 }}>
+              {'⏳'}
+              <style>{`
+                @keyframes hourglass {
+                  0%, 100% { transform: rotate(0deg); }
+                  50% { transform: rotate(180deg); }
+                }
+                .hourglass-spin { display:inline-block; animation: hourglass 1.5s ease-in-out infinite; }
+              `}</style>
+            </div>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, marginBottom:12 }}>
+              <div style={{ width:8, height:8, borderRadius:'50%', background:'#7c3aed', animation:'dot1 1.2s ease-in-out infinite' }} />
+              <div style={{ width:8, height:8, borderRadius:'50%', background:'#7c3aed', animation:'dot1 1.2s ease-in-out infinite 0.2s' }} />
+              <div style={{ width:8, height:8, borderRadius:'50%', background:'#7c3aed', animation:'dot1 1.2s ease-in-out infinite 0.4s' }} />
+              <style>{`
+                @keyframes dot1 {
+                  0%, 80%, 100% { transform: scale(0.6); opacity:0.4; }
+                  40% { transform: scale(1); opacity:1; }
+                }
+              `}</style>
+            </div>
+            <p style={{ fontSize:16, fontWeight:800, color:'#0f172a', marginBottom:6 }}>AI 명함 분석 중</p>
+            <p style={{ fontSize:13, color:'#64748b', lineHeight:1.7 }}>
+              Gemini AI가 명함에서<br/>
+              정보를 추출하고 있어요<br/>
+              <span style={{ fontSize:11, color:'#94a3b8' }}>잠시만 기다려주세요...</span>
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* ── 이미지 편집 모달 ── */}
       {showCropModal && cropSrc && (
