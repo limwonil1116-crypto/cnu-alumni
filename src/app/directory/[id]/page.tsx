@@ -122,6 +122,7 @@ async function compressImage(file: File): Promise<string> {
 async function extractCardInfo(file: File): Promise<{
   phone?: string; email?: string; address?: string;
   company?: string; job_title?: string;
+  office_phone?: string; fax?: string;
 }> {
   const imageBase64 = await compressImage(file);
   const res = await fetch('/api/ocr', {
@@ -319,19 +320,23 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
       setForm(prev => ({
         ...prev,
         card_image_url: url,
-        company:   info.company   ? info.company   : prev.company,
-        job_title: info.job_title ? info.job_title : prev.job_title,
-        phone:     info.phone     ? info.phone     : prev.phone,
-        email:     info.email     ? info.email     : prev.email,
-        address:   info.address   ? info.address   : prev.address,
+        company:      info.company      ? info.company      : prev.company,
+        job_title:    info.job_title    ? info.job_title    : prev.job_title,
+        phone:        info.phone        ? info.phone        : prev.phone,
+        office_phone: info.office_phone ? info.office_phone : prev.office_phone,
+        fax:          info.fax          ? info.fax          : prev.fax,
+        email:        info.email        ? info.email        : prev.email,
+        address:      info.address      ? info.address      : prev.address,
       }));
 
       const changed: string[] = [];
-      if (info.company)   changed.push('부서');
-      if (info.job_title) changed.push('직책');
-      if (info.phone)     changed.push('전화번호');
-      if (info.email)     changed.push('이메일');
-      if (info.address)   changed.push('주소');
+      if (info.company)      changed.push('부서');
+      if (info.job_title)    changed.push('직책');
+      if (info.phone)        changed.push('전화번호');
+      if (info.office_phone) changed.push('사무실전화');
+      if (info.fax)          changed.push('FAX');
+      if (info.email)        changed.push('이메일');
+      if (info.address)      changed.push('주소');
 
       if (info.phone || info.email) {
         await supabase.from('alumni_master').update({
@@ -344,9 +349,11 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
         .from('alumni_profiles').select('id').eq('alumni_id', id).single();
 
       const profileData = {
-        ...(info.company   ? { company: info.company }     : {}),
-        ...(info.job_title ? { job_title: info.job_title } : {}),
-        ...(info.address   ? { address: info.address }     : {}),
+        ...(info.company      ? { company: info.company }           : {}),
+        ...(info.job_title    ? { job_title: info.job_title }       : {}),
+        ...(info.address      ? { address: info.address }           : {}),
+        ...(info.office_phone ? { office_phone: info.office_phone } : {}),
+        ...(info.fax          ? { fax: info.fax }                   : {}),
         card_image_url: url,
       };
 
@@ -357,6 +364,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
           alumni_id: id,
           company: info.company || null, job_title: info.job_title || null,
           address: info.address || null, card_image_url: url,
+          office_phone: info.office_phone || null, fax: info.fax || null,
         });
       }
 

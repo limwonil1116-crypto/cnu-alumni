@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
     const base64Data = imageBase64.includes(',') ? imageBase64.split(',')[1] : imageBase64;
 
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-04-17:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -22,6 +22,8 @@ export async function POST(req: NextRequest) {
   "company": "회사명 또는 부서명",
   "job_title": "직책 또는 직위",
   "phone": "휴대폰번호 (010으로 시작, 하이픈 포함, 예: 010-1234-5678)",
+  "office_phone": "사무실 전화번호 (010으로 시작하지 않는 것, 하이픈 포함, 예: 041-000-0000)",
+  "fax": "팩스번호 (FAX 또는 F로 표시된 것, 하이픈 포함, 예: 041-000-0001)",
   "email": "이메일주소",
   "address": "주소"
 }
