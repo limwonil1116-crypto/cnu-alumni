@@ -91,20 +91,40 @@ function saveContact(alumni: AlumniDetail) {
   URL.revokeObjectURL(url);
 }
 
+// 이미지 압축 함수 (413 에러 방지)
+async function compressImage(file: File): Promise<string> {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX = 1024;
+        let w = img.width, h = img.height;
+        if (w > MAX || h > MAX) {
+          if (w > h) { h = Math.round((h / w) * MAX); w = MAX; }
+          else { w = Math.round((w / h) * MAX); h = MAX; }
+        }
+        canvas.width = w;
+        canvas.height = h;
+        canvas.getContext('2d')!.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', 0.75));
+      };
+      img.src = e.target!.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 async function extractCardInfo(file: File): Promise<{
   phone?: string; email?: string; address?: string;
   company?: string; job_title?: string;
 }> {
-  const base64 = await new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
+  const imageBase64 = await compressImage(file);
   const res = await fetch('/api/ocr', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ imageBase64: base64 }),
+    body: JSON.stringify({ imageBase64 }),
   });
   if (!res.ok) throw new Error('API 오류');
   const data = await res.json();
@@ -738,7 +758,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
           </button>
         )}
       </div>
-      
+
       {/* ── AI 분석 로딩 오버레이 ── */}
       {extracting && (
         <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.75)', zIndex:300, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', fontFamily:'inherit' }}>
