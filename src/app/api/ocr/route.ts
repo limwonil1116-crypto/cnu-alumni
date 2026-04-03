@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function POST(req: NextRequest) {
   try {
     const { imageBase64 } = await req.json();
-    const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) return NextResponse.json({ error: 'API 키 없음' }, { status: 500 });
 
     const base64Data = imageBase64.includes(',') ? imageBase64.split(',')[1] : imageBase64;
