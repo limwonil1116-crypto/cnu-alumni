@@ -23,6 +23,8 @@ interface AlumniDetail {
   card_image_url?: string;
   profile_id?: string;
   organization?: string;
+  office_phone?: string;
+  fax?: string;
 }
 
 const ORG_LIST = [
@@ -78,6 +80,8 @@ function saveContact(alumni: AlumniDetail) {
     'BEGIN:VCARD', 'VERSION:3.0',
     `FN:${alumni.name}`, `N:${alumni.name};;;`,
     alumni.phone ? `TEL;TYPE=CELL:${alumni.phone}` : '',
+    alumni.office_phone ? `TEL;TYPE=WORK:${alumni.office_phone}` : '',
+    alumni.fax ? `TEL;TYPE=FAX:${alumni.fax}` : '',
     alumni.company ? `ORG:${alumni.company}` : '',
     alumni.job_title ? `TITLE:${alumni.job_title}` : '',
     alumni.email ? `EMAIL:${alumni.email}` : '',
@@ -91,7 +95,6 @@ function saveContact(alumni: AlumniDetail) {
   URL.revokeObjectURL(url);
 }
 
-// 이미지 압축 함수 (413 에러 방지)
 async function compressImage(file: File): Promise<string> {
   return new Promise((resolve) => {
     const reader = new FileReader();
@@ -147,7 +150,6 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
   const [contactSaved, setContactSaved] = useState(false);
   const [extracting, setExtracting] = useState(false);
 
-  // 이미지 편집 관련
   const [showCropModal, setShowCropModal] = useState(false);
   const [cropSrc, setCropSrc] = useState('');
   const [cropFile, setCropFile] = useState<File | null>(null);
@@ -162,14 +164,14 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
 
   const [form, setForm] = useState({
     company: '', job_title: '', region: '', address: '', bio: '',
-    phone: '', email: '',
+    phone: '', email: '', office_phone: '', fax: '',
     photo_url: '', card_image_url: '', organization: '한국농어촌공사',
   });
 
   const fetchData = async () => {
     const { data } = await supabase
       .from('alumni_master')
-      .select('id, name, phone, email, admission_year, graduation_year, department_name, organization, alumni_profiles (id, company, job_title, region, address, bio, photo_url, card_image_url)')
+      .select('id, name, phone, email, admission_year, graduation_year, department_name, organization, alumni_profiles (id, company, job_title, region, address, bio, photo_url, card_image_url, office_phone, fax)')
       .eq('id', id)
       .single();
     if (data) {
@@ -185,6 +187,8 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
         bio: p?.bio, photo_url: p?.photo_url,
         card_image_url: p?.card_image_url, profile_id: p?.id,
         organization: (data as any).organization || '한국농어촌공사',
+        office_phone: p?.office_phone,
+        fax: p?.fax,
       };
       setAlumni(detail);
       setForm({
@@ -192,6 +196,8 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
         region: p?.region || '', address: p?.address || '',
         bio: p?.bio || '', phone: data.phone || '',
         email: data.email || '',
+        office_phone: p?.office_phone || '',
+        fax: p?.fax || '',
         photo_url: p?.photo_url || '', card_image_url: p?.card_image_url || '',
         organization: (data as any).organization || '한국농어촌공사',
       });
@@ -216,7 +222,6 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
     setUploadingPhoto(false);
   };
 
-  // 파일 선택 → 편집 모달 열기
   const handleCardFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = '';
@@ -242,13 +247,10 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
     setCrop(c);
   };
 
-  // 편집 완료 → 업로드 + AI 분석
   const handleCropComplete = useCallback(async () => {
     if (!cropFile) return;
-
     let fileToUpload = cropFile;
 
-    // crop이 있으면 자르기 적용
     if (completedCrop && imgRef.current && completedCrop.width > 0 && completedCrop.height > 0) {
       const canvas = document.createElement('canvas');
       const img = imgRef.current;
@@ -258,7 +260,6 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
       canvas.height = completedCrop.height * scaleY;
       const ctx = canvas.getContext('2d');
       if (ctx) {
-        // 회전 적용
         if (rotation !== 0) {
           const rad = (rotation * Math.PI) / 180;
           const cos = Math.abs(Math.cos(rad));
@@ -279,7 +280,6 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
         fileToUpload = new File([blob], cropFile.name, { type: 'image/jpeg' });
       }
     } else if (rotation !== 0) {
-      // 자르기 없이 회전만
       const img = imgRef.current;
       if (img) {
         const canvas = document.createElement('canvas');
@@ -303,7 +303,6 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
     await handleCardUploadWithFile(fileToUpload);
   }, [completedCrop, cropFile, rotation]);
 
-  // 실제 업로드 + AI 분석 + Supabase 저장
   const handleCardUploadWithFile = async (file: File) => {
     setUploadingCard(true);
     setExtracting(true);
@@ -328,7 +327,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
       }));
 
       const changed: string[] = [];
-      if (info.company)   changed.push('회사명');
+      if (info.company)   changed.push('부서');
       if (info.job_title) changed.push('직책');
       if (info.phone)     changed.push('전화번호');
       if (info.email)     changed.push('이메일');
@@ -394,6 +393,8 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
         region: form.region || null, address: form.address || null,
         bio: form.bio || null, photo_url: form.photo_url || null,
         card_image_url: form.card_image_url || null,
+        office_phone: form.office_phone || null,
+        fax: form.fax || null,
       }).eq('id', existingProfile.id);
     } else {
       await supabase.from('alumni_profiles').insert({
@@ -402,6 +403,8 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
         region: form.region || null, address: form.address || null,
         bio: form.bio || null, photo_url: form.photo_url || null,
         card_image_url: form.card_image_url || null,
+        office_phone: form.office_phone || null,
+        fax: form.fax || null,
       });
     }
     await fetchData();
@@ -449,11 +452,13 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
   const org = alumni.organization || '한국농어촌공사';
 
   const fieldRows = [
-    { label:'회사명', key:'company', placeholder:'한국농어촌공사 충청지역본부' },
+    { label:'부서', key:'company', placeholder:'충남지역본부 기반사업부' },
     { label:'직무/직책', key:'job_title', placeholder:'과장' },
     { label:'지역', key:'region', placeholder:'충남' },
     { label:'주소 (지도 표시용)', key:'address', placeholder:'대전광역시 서구 대덕대로 290번길 27' },
     { label:'휴대폰', key:'phone', placeholder:'010-1234-5678' },
+    { label:'사무실 전화', key:'office_phone', placeholder:'041-000-0000' },
+    { label:'FAX', key:'fax', placeholder:'041-000-0001' },
     { label:'이메일', key:'email', placeholder:'example@ekr.or.kr' },
   ];
 
@@ -626,7 +631,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
                   <OrgBadge height={18} />
                 </div>
               </div>
-              {alumni.company && <InfoRow label="회사/부서" value={alumni.company} />}
+              {alumni.company && <InfoRow label="부서" value={alumni.company} />}
               {alumni.job_title && <InfoRow label="직무/직책" value={alumni.job_title} />}
               {alumni.phone && (
                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'6px 0', borderBottom:'1px solid #f1f5f9' }}>
@@ -635,6 +640,24 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
                     <p style={{ fontSize:14, fontWeight:600, color:'#0f172a' }}>{alumni.phone}</p>
                   </div>
                   <button onClick={() => copy(alumni.phone!, '휴대폰')} style={{ background:'#eff6ff', border:'none', borderRadius:8, padding:'5px 12px', fontSize:11, color:'#1B3F7B', fontWeight:600, cursor:'pointer' }}>복사</button>
+                </div>
+              )}
+              {alumni.office_phone && (
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'6px 0', borderBottom:'1px solid #f1f5f9' }}>
+                  <div>
+                    <p style={{ fontSize:10, color:'#94a3b8', marginBottom:2 }}>사무실 전화</p>
+                    <p style={{ fontSize:14, fontWeight:600, color:'#0f172a' }}>{alumni.office_phone}</p>
+                  </div>
+                  <button onClick={() => copy(alumni.office_phone!, '사무실 전화')} style={{ background:'#eff6ff', border:'none', borderRadius:8, padding:'5px 12px', fontSize:11, color:'#1B3F7B', fontWeight:600, cursor:'pointer' }}>복사</button>
+                </div>
+              )}
+              {alumni.fax && (
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'6px 0', borderBottom:'1px solid #f1f5f9' }}>
+                  <div>
+                    <p style={{ fontSize:10, color:'#94a3b8', marginBottom:2 }}>FAX</p>
+                    <p style={{ fontSize:14, fontWeight:600, color:'#0f172a' }}>{alumni.fax}</p>
+                  </div>
+                  <button onClick={() => copy(alumni.fax!, 'FAX')} style={{ background:'#eff6ff', border:'none', borderRadius:8, padding:'5px 12px', fontSize:11, color:'#1B3F7B', fontWeight:600, cursor:'pointer' }}>복사</button>
                 </div>
               )}
               {alumni.email && (
@@ -749,6 +772,8 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
               region: alumni.region||'', address: alumni.address||'',
               bio: alumni.bio||'', phone: alumni.phone||'',
               email: alumni.email||'',
+              office_phone: alumni.office_phone||'',
+              fax: alumni.fax||'',
               photo_url: alumni.photo_url||'', card_image_url: alumni.card_image_url||'',
               organization: alumni.organization||'한국농어촌공사'
             });
@@ -763,31 +788,16 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
       {extracting && (
         <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.75)', zIndex:300, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', fontFamily:'inherit' }}>
           <div style={{ background:'#fff', borderRadius:24, padding:'32px 28px', textAlign:'center', maxWidth:280, width:'90%', boxShadow:'0 20px 60px rgba(0,0,0,0.4)' }}>
-            <div style={{ fontSize:40, marginBottom:16 }}>
-              {'⏳'}
-              <style>{`
-                @keyframes hourglass {
-                  0%, 100% { transform: rotate(0deg); }
-                  50% { transform: rotate(180deg); }
-                }
-                .hourglass-spin { display:inline-block; animation: hourglass 1.5s ease-in-out infinite; }
-              `}</style>
-            </div>
+            <div style={{ fontSize:40, marginBottom:16 }}>{'⏳'}</div>
             <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, marginBottom:12 }}>
               <div style={{ width:8, height:8, borderRadius:'50%', background:'#7c3aed', animation:'dot1 1.2s ease-in-out infinite' }} />
               <div style={{ width:8, height:8, borderRadius:'50%', background:'#7c3aed', animation:'dot1 1.2s ease-in-out infinite 0.2s' }} />
               <div style={{ width:8, height:8, borderRadius:'50%', background:'#7c3aed', animation:'dot1 1.2s ease-in-out infinite 0.4s' }} />
-              <style>{`
-                @keyframes dot1 {
-                  0%, 80%, 100% { transform: scale(0.6); opacity:0.4; }
-                  40% { transform: scale(1); opacity:1; }
-                }
-              `}</style>
+              <style>{`@keyframes dot1{0%,80%,100%{transform:scale(0.6);opacity:0.4}40%{transform:scale(1);opacity:1}}`}</style>
             </div>
             <p style={{ fontSize:16, fontWeight:800, color:'#0f172a', marginBottom:6 }}>AI 명함 분석 중</p>
             <p style={{ fontSize:13, color:'#64748b', lineHeight:1.7 }}>
-              Gemini AI가 명함에서<br/>
-              정보를 추출하고 있어요<br/>
+              Gemini AI가 명함에서<br/>정보를 추출하고 있어요<br/>
               <span style={{ fontSize:11, color:'#94a3b8' }}>잠시만 기다려주세요...</span>
             </p>
           </div>
@@ -799,41 +809,22 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
         <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.92)', zIndex:200, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:16, fontFamily:'inherit' }}>
           <p style={{ color:'#fff', fontSize:15, fontWeight:700, marginBottom:4 }}>명함 편집</p>
           <p style={{ color:'rgba(255,255,255,0.5)', fontSize:11, marginBottom:12 }}>드래그로 자르기 영역 선택 · 회전 버튼으로 방향 조정</p>
-
           <div style={{ maxWidth:380, width:'100%', maxHeight:'55vh', overflow:'auto', marginBottom:16, borderRadius:12 }}>
-            <ReactCrop
-              crop={crop}
-              onChange={c => setCrop(c)}
-              onComplete={c => setCompletedCrop(c)}
-            >
-              <img
-                ref={imgRef}
-                src={cropSrc}
-                onLoad={onImageLoad}
-                style={{
-                  maxWidth:'100%',
-                  transform:`rotate(${rotation}deg)`,
-                  transition:'transform 0.25s',
-                  display:'block',
-                }}
-              />
+            <ReactCrop crop={crop} onChange={c => setCrop(c)} onComplete={c => setCompletedCrop(c)}>
+              <img ref={imgRef} src={cropSrc} onLoad={onImageLoad}
+                style={{ maxWidth:'100%', transform:`rotate(${rotation}deg)`, transition:'transform 0.25s', display:'block' }} />
             </ReactCrop>
           </div>
-
           <div style={{ display:'flex', gap:8, marginBottom:12, flexWrap:'wrap', justifyContent:'center' }}>
-            <button
-              onClick={() => setRotation(r => (r + 90) % 360)}
+            <button onClick={() => setRotation(r => (r + 90) % 360)}
               style={{ background:'rgba(255,255,255,0.15)', border:'1px solid rgba(255,255,255,0.3)', borderRadius:10, padding:'9px 16px', color:'#fff', fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>
               🔄 90° 회전
             </button>
-            <button
-              onClick={handleCropComplete}
-              disabled={uploadingCard || extracting}
+            <button onClick={handleCropComplete} disabled={uploadingCard || extracting}
               style={{ background:'#7c3aed', border:'none', borderRadius:10, padding:'9px 20px', color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:'inherit', opacity: uploadingCard || extracting ? 0.7 : 1 }}>
               {uploadingCard || extracting ? '⏳ 분석중...' : '✅ 완료 및 AI 분석'}
             </button>
-            <button
-              onClick={() => { setShowCropModal(false); setCropSrc(''); }}
+            <button onClick={() => { setShowCropModal(false); setCropSrc(''); }}
               style={{ background:'rgba(255,255,255,0.1)', border:'1px solid rgba(255,255,255,0.2)', borderRadius:10, padding:'9px 16px', color:'#fff', fontSize:13, cursor:'pointer', fontFamily:'inherit' }}>
               취소
             </button>
