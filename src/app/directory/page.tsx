@@ -144,7 +144,7 @@ function OrgButton({ org, active, onClick }: { org: string; active: boolean; onC
   );
 }
 
-const EXT_PIN = '1111';
+const EXT_PIN = '2580';
 
 export default function DirectoryPage() {
   const router = useRouter();
@@ -156,6 +156,7 @@ export default function DirectoryPage() {
   const [activeGroup, setActiveGroup] = useState('한국농어촌공사');
   const [activeOrg, setActiveOrg] = useState('전체');
   const [activeDept, setActiveDept] = useState('전체');
+  const [myEmail, setMyEmail] = useState('');
 
   // 외부기관 PIN
   const [extUnlocked, setExtUnlocked] = useState(false);
@@ -167,6 +168,7 @@ export default function DirectoryPage() {
     const init = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { router.replace('/'); return; }
+      setMyEmail(session.user.email || '');
       setAuthChecked(true);
       const { data, error } = await supabase
         .from('alumni_master')
@@ -190,6 +192,17 @@ export default function DirectoryPage() {
     };
     init();
   }, [router]);
+
+  // 본인 프로필 페이지로 이동
+  const goToMyProfile = async () => {
+    const { data } = await supabase
+      .from('alumni_master')
+      .select('id')
+      .eq('email', myEmail)
+      .single();
+    if (data?.id) router.push('/directory/' + data.id);
+    else router.push('/mypage');
+  };
 
   const extOrgs = ORG_GROUPS.find(g => g.label === '외부기관')!.orgs;
 
@@ -313,7 +326,7 @@ export default function DirectoryPage() {
   return (
     <div style={{ ...F, minHeight: '100dvh', display: 'flex', flexDirection: 'column', background: '#f0f4f8' }}>
 
-      {/* ── 헤더 (파란 배경) ── */}
+      {/* ── 헤더 ── */}
       <div style={{ background: 'linear-gradient(135deg, #0d2d6e 0%, #1B3F7B 60%, #1a5276 100%)', position: 'sticky', top: 0, zIndex: 40, boxShadow: '0 2px 12px rgba(13,45,110,0.3)' }}>
         <div style={{ padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -322,7 +335,6 @@ export default function DirectoryPage() {
                 onError={e => { (e.target as HTMLImageElement).src = '/krc-logo.jpg'; }}
                 style={{ height: 22, width: 'auto', objectFit: 'contain' }} />
             </div>
-            <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11 }}></span>
           </div>
           <TopButtons />
         </div>
@@ -337,11 +349,13 @@ export default function DirectoryPage() {
                 <span style={{ fontSize: 24, fontWeight: 800, color: '#fff' }}>{filtered.length}</span>
                 <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', marginLeft: 3 }}>명</span>
               </div>
-              <Link href="/mypage" style={{ width: 34, height: 34, borderRadius: '50%', background: 'rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', border: '1px solid rgba(255,255,255,0.2)' }}>
+              {/* 사람 버튼 → 본인 프로필로 이동 */}
+              <button onClick={goToMyProfile}
+                style={{ width: 34, height: 34, borderRadius: '50%', background: 'rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(255,255,255,0.2)', cursor: 'pointer' }}>
                 <svg width="16" height="16" fill="none" stroke="#fff" strokeWidth="2" viewBox="0 0 24 24">
                   <circle cx="12" cy="8" r="4" /><path d="M20 21a8 8 0 1 0-16 0" />
                 </svg>
-              </Link>
+              </button>
             </div>
           </div>
           <div style={{ background: 'rgba(255,255,255,0.1)', borderRadius: 10, padding: '9px 14px', display: 'flex', alignItems: 'center', gap: 8, border: '1px solid rgba(255,255,255,0.15)' }}>
@@ -353,12 +367,10 @@ export default function DirectoryPage() {
             {query && <button onClick={() => setQuery('')} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 11, padding: '2px 7px', borderRadius: 10 }}>✕</button>}
           </div>
         </div>
-      </div> {/* 헤더 끝 */}
+      </div>
 
-      {/* ── 기관 + 학과 필터 (흰 배경) ── */}
+      {/* ── 기관 + 학과 필터 ── */}
       <div style={{ background: '#fff', borderBottom: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', padding: '12px 16px' }}>
-
-        {/* 기관 대분류 */}
         <p style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8 }}>기관</p>
         <div style={{ display: 'flex', gap: 8, overflowX: 'auto', scrollbarWidth: 'none', marginBottom: 12 } as React.CSSProperties}>
           <button onClick={() => { setActiveGroup('전체'); setActiveOrg('전체'); setActiveDept('전체'); }}
@@ -367,7 +379,6 @@ export default function DirectoryPage() {
           </button>
           <OrgButton org="한국농어촌공사" active={activeGroup === '한국농어촌공사'}
             onClick={() => { setActiveGroup('한국농어촌공사'); setActiveOrg('전체'); setActiveDept('전체'); }} />
-          {/* 외부기관 - PIN 잠금 */}
           <button
             onClick={() => {
               if (extUnlocked) {
@@ -381,7 +392,6 @@ export default function DirectoryPage() {
           </button>
         </div>
 
-        {/* 외부기관 세부 */}
         {activeGroup === '외부기관' && extUnlocked && (
           <>
             <p style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8 }}>세부 기관</p>
@@ -398,7 +408,6 @@ export default function DirectoryPage() {
           </>
         )}
 
-        {/* 학과 버튼 */}
         <p style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8 }}>학과</p>
         <div style={{ display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none', marginBottom: 8 } as React.CSSProperties}>
           {deptList.map(dept => (
@@ -407,7 +416,6 @@ export default function DirectoryPage() {
             </button>
           ))}
         </div>
-        {/* 학과 드롭다운 */}
         <div style={{ position: 'relative' }}>
           <select value={activeDept} onChange={e => setActiveDept(e.target.value)}
             style={{ width: '100%', appearance: 'none', WebkitAppearance: 'none', background: '#f8fafc', border: '1.5px solid #e2e8f0', borderRadius: 10, padding: '8px 36px 8px 14px', fontSize: 13, color: activeDept === '전체' ? '#94a3b8' : '#1B3F7B', fontWeight: activeDept === '전체' ? 400 : 700, cursor: 'pointer', fontFamily: 'inherit', outline: 'none' } as React.CSSProperties}>
@@ -434,8 +442,6 @@ export default function DirectoryPage() {
               <p style={{ fontSize: 16, fontWeight: 700, color: '#0f172a', marginBottom: 4 }}>외부기관 잠금</p>
               <p style={{ fontSize: 12, color: '#94a3b8' }}>4자리 비밀번호를 입력하세요</p>
             </div>
-
-            {/* PIN 표시 */}
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginBottom: 16 }}>
               {[0,1,2,3].map(i => (
                 <div key={i} style={{ width: 52, height: 60, border: `2px solid ${pinInput.length > i ? '#1B3F7B' : '#e2e8f0'}`, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, background: pinInput.length > i ? '#eff6ff' : '#fff', transition: 'all 0.15s' }}>
@@ -443,14 +449,11 @@ export default function DirectoryPage() {
                 </div>
               ))}
             </div>
-
             {pinError && (
               <div style={{ background: '#fef2f2', color: '#dc2626', padding: '8px 14px', borderRadius: 10, fontSize: 12, marginBottom: 12, textAlign: 'center' }}>
                 {pinError}
               </div>
             )}
-
-            {/* 키패드 */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, maxWidth: 280, margin: '0 auto 16px', width: '100%' }}>
               {['1','2','3','4','5','6','7','8','9','','0','⌫'].map((k, idx) => (
                 <button key={idx} onClick={() => handlePinKey(k)}
@@ -459,7 +462,6 @@ export default function DirectoryPage() {
                 </button>
               ))}
             </div>
-
             <button onClick={() => setShowPinModal(false)}
               style={{ width: '100%', background: '#f1f5f9', border: 'none', borderRadius: 12, padding: 14, fontSize: 14, fontWeight: 600, color: '#64748b', cursor: 'pointer' }}>
               취소

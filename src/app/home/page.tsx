@@ -132,6 +132,17 @@ export default function HomePage() {
   const canEdit = (post: Post) => post.author_email === myEmail || myName === ADMIN_NAME;
   const canDelete = (post: Post) => post.author_email === myEmail || myName === ADMIN_NAME;
 
+  // 본인 프로필 페이지로 이동
+  const goToMyProfile = async () => {
+    const { data } = await supabase
+      .from('alumni_master')
+      .select('id')
+      .eq('email', myEmail)
+      .single();
+    if (data?.id) router.push('/directory/' + data.id);
+    else router.push('/mypage');
+  };
+
   if (loading) return (
     <div style={{ ...F, minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f0f4f8' }}>
       <div style={{ width: 36, height: 36, border: '3px solid #e2e8f0', borderTop: '3px solid #1B3F7B', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
@@ -150,16 +161,17 @@ export default function HomePage() {
               <img src="/krc-logo.jpg" alt="KRC" style={{ height: 22, width: 'auto', objectFit: 'contain' }} />
             </div>
           </div>
-          {/* 공유 + 설치 버튼 */}
           <TopButtons />
         </div>
         <div style={{ padding: '12px 16px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <h1 style={{ color: '#fff', fontSize: 20, fontWeight: 800, marginBottom: 14 }}>충남대학교 백마회</h1>
-          <Link href="/mypage" style={{ width: 34, height: 34, borderRadius: '50%', background: 'rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', border: '1px solid rgba(255,255,255,0.2)', marginBottom: 14 }}>
+          {/* 사람 버튼 → 본인 프로필로 이동 */}
+          <button onClick={goToMyProfile}
+            style={{ width: 34, height: 34, borderRadius: '50%', background: 'rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(255,255,255,0.2)', marginBottom: 14, cursor: 'pointer' }}>
             <svg width="16" height="16" fill="none" stroke="#fff" strokeWidth="2" viewBox="0 0 24 24">
               <circle cx="12" cy="8" r="4" /><path d="M20 21a8 8 0 1 0-16 0" />
             </svg>
-          </Link>
+          </button>
         </div>
         <div style={{ display: 'flex', padding: '0 16px' }}>
           {(['notice', 'board'] as const).map(t => (
