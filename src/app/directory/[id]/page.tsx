@@ -25,6 +25,7 @@ interface AlumniDetail {
   organization?: string;
   office_phone?: string;
   fax?: string;
+  profile_email?: string;
 }
 
 const ORG_LIST = [
@@ -76,6 +77,8 @@ const avatarColor = (name: string) => {
 const F = { fontFamily:"'Apple SD Gothic Neo','Noto Sans KR',sans-serif" };
 
 function saveContact(alumni: AlumniDetail) {
+  // 이메일 우선순위: profile_email(명함) > email(카톡)
+  const displayEmail = alumni.profile_email || alumni.email;
   const vcard = [
     'BEGIN:VCARD', 'VERSION:3.0',
     `FN:${alumni.name}`, `N:${alumni.name};;;`,
@@ -84,7 +87,7 @@ function saveContact(alumni: AlumniDetail) {
     alumni.fax ? `TEL;TYPE=FAX:${alumni.fax}` : '',
     alumni.company ? `ORG:${alumni.company}` : '',
     alumni.job_title ? `TITLE:${alumni.job_title}` : '',
-    alumni.email ? `EMAIL:${alumni.email}` : '',
+    displayEmail ? `EMAIL:${displayEmail}` : '',
     alumni.department ? `NOTE:충남대학교 백마회 / ${alumni.department}` : 'NOTE:충남대학교 백마회',
     'END:VCARD',
   ].filter(Boolean).join('\n');
@@ -165,14 +168,14 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
 
   const [form, setForm] = useState({
     company: '', job_title: '', region: '', address: '', bio: '',
-    phone: '', email: '', office_phone: '', fax: '',
+    phone: '', email: '', office_phone: '', fax: '', profile_email: '',
     photo_url: '', card_image_url: '', organization: '한국농어촌공사',
   });
 
   const fetchData = async () => {
     const { data } = await supabase
       .from('alumni_master')
-      .select('id, name, phone, email, admission_year, graduation_year, department_name, organization, alumni_profiles (id, company, job_title, region, address, bio, photo_url, card_image_url, office_phone, fax)')
+      .select('id, name, phone, email, admission_year, graduation_year, department_name, organization, alumni_profiles (id, company, job_title, region, address, bio, photo_url, card_image_url, office_phone, fax, email)')
       .eq('id', id)
       .single();
     if (data) {
@@ -182,7 +185,8 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
         department: (data as any).department_name || '',
         admission_year: data.admission_year,
         graduation_year: data.graduation_year,
-        phone: data.phone, email: data.email,
+        phone: data.phone,
+        email: data.email, // 카톡 email
         company: p?.company, job_title: p?.job_title,
         region: p?.region, address: p?.address,
         bio: p?.bio, photo_url: p?.photo_url,
@@ -190,6 +194,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
         organization: (data as any).organization || '한국농어촌공사',
         office_phone: p?.office_phone,
         fax: p?.fax,
+        profile_email: p?.email, // 명함 email
       };
       setAlumni(detail);
       setForm({
@@ -199,6 +204,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
         email: data.email || '',
         office_phone: p?.office_phone || '',
         fax: p?.fax || '',
+        profile_email: p?.email || '',
         photo_url: p?.photo_url || '', card_image_url: p?.card_image_url || '',
         organization: (data as any).organization || '한국농어촌공사',
       });
@@ -320,13 +326,13 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
       setForm(prev => ({
         ...prev,
         card_image_url: url,
-        company:      info.company      ? info.company      : prev.company,
-        job_title:    info.job_title    ? info.job_title    : prev.job_title,
-        phone:        info.phone        ? info.phone        : prev.phone,
-        office_phone: info.office_phone ? info.office_phone : prev.office_phone,
-        fax:          info.fax          ? info.fax          : prev.fax,
-        email:        info.email        ? info.email        : prev.email,
-        address:      info.address      ? info.address      : prev.address,
+        company:       info.company      ? info.company      : prev.company,
+        job_title:     info.job_title    ? info.job_title    : prev.job_title,
+        phone:         info.phone        ? info.phone        : prev.phone,
+        office_phone:  info.office_phone ? info.office_phone : prev.office_phone,
+        fax:           info.fax          ? info.fax          : prev.fax,
+        profile_email: info.email        ? info.email        : prev.profile_email, // 명함 email → profile_email
+        address:       info.address      ? info.address      : prev.address,
       }));
 
       const changed: string[] = [];
@@ -338,10 +344,10 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
       if (info.email)        changed.push('이메일');
       if (info.address)      changed.push('주소');
 
-      if (info.phone || info.email) {
+      // phone만 alumni_master에 저장 (email은 카톡 email 보호를 위해 저장 안 함)
+      if (info.phone) {
         await supabase.from('alumni_master').update({
-          ...(info.phone ? { phone: info.phone } : {}),
-          ...(info.email ? { email: info.email } : {}),
+          phone: info.phone,
         }).eq('id', id);
       }
 
@@ -354,6 +360,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
         ...(info.address      ? { address: info.address }           : {}),
         ...(info.office_phone ? { office_phone: info.office_phone } : {}),
         ...(info.fax          ? { fax: info.fax }                   : {}),
+        ...(info.email        ? { email: info.email }               : {}), // 명함 email → alumni_profiles.email
         card_image_url: url,
       };
 
@@ -365,6 +372,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
           company: info.company || null, job_title: info.job_title || null,
           address: info.address || null, card_image_url: url,
           office_phone: info.office_phone || null, fax: info.fax || null,
+          email: info.email || null,
         });
       }
 
@@ -388,8 +396,8 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
     setSaving(true);
     await supabase.from('alumni_master').update({
       phone: form.phone || null,
-      email: form.email || null,
       organization: form.organization,
+      // email은 alumni_master에 저장 안 함 (카톡 email 보호)
     }).eq('id', id);
 
     const { data: existingProfile } = await supabase
@@ -403,6 +411,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
         card_image_url: form.card_image_url || null,
         office_phone: form.office_phone || null,
         fax: form.fax || null,
+        email: form.profile_email || null, // 명함 email
       }).eq('id', existingProfile.id);
     } else {
       await supabase.from('alumni_profiles').insert({
@@ -413,6 +422,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
         card_image_url: form.card_image_url || null,
         office_phone: form.office_phone || null,
         fax: form.fax || null,
+        email: form.profile_email || null,
       });
     }
     await fetchData();
@@ -459,6 +469,9 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
   const bar = <div style={{ width:4, height:16, background:'#1B3F7B', borderRadius:2 }} />;
   const org = alumni.organization || '한국농어촌공사';
 
+  // 표시용 이메일: 명함 email 우선, 없으면 카톡 email
+  const displayEmail = alumni.profile_email || alumni.email;
+
   const fieldRows = [
     { label:'부서', key:'company', placeholder:'충남지역본부 기반사업부' },
     { label:'직무/직책', key:'job_title', placeholder:'과장' },
@@ -467,7 +480,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
     { label:'휴대폰', key:'phone', placeholder:'010-1234-5678' },
     { label:'사무실 전화', key:'office_phone', placeholder:'041-000-0000' },
     { label:'FAX', key:'fax', placeholder:'041-000-0001' },
-    { label:'이메일', key:'email', placeholder:'example@ekr.or.kr' },
+    { label:'이메일 (명함)', key:'profile_email', placeholder:'example@ekr.or.kr' },
   ];
 
   const OrgBadge = ({ height = 14 }: { height?: number }) => (
@@ -571,7 +584,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
         )}
 
         {/* ── 연락처 저장 + 연락 버튼 ── */}
-        {!editMode && (alumni.phone || alumni.email) && (
+        {!editMode && (alumni.phone || displayEmail) && (
           <div style={{ background:'#fff', borderRadius:16, padding:'14px 16px', marginBottom:10, boxShadow:'0 1px 4px rgba(13,45,110,0.07)', border:'1px solid #e2e8f0' }}>
             {alumni.phone && (
               <button onClick={handleSaveContact}
@@ -595,8 +608,8 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
                   문자
                 </a>
               )}
-              {alumni.email && (
-                <a href={'mailto:' + alumni.email} style={{ flex:1, background:'#f8fafc', color:'#475569', borderRadius:10, padding:'10px', textAlign:'center', fontSize:13, fontWeight:700, textDecoration:'none', display:'flex', flexDirection:'column', alignItems:'center', gap:3 }}>
+              {displayEmail && (
+                <a href={'mailto:' + displayEmail} style={{ flex:1, background:'#f8fafc', color:'#475569', borderRadius:10, padding:'10px', textAlign:'center', fontSize:13, fontWeight:700, textDecoration:'none', display:'flex', flexDirection:'column', alignItems:'center', gap:3 }}>
                   <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
                   메일
                 </a>
@@ -626,7 +639,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
                 <div key={f.key}>
                   <p style={{ fontSize:11, color:'#94a3b8', marginBottom:3 }}>{f.label}</p>
                   <input value={(form as any)[f.key]} onChange={e => setForm(prev => ({ ...prev, [f.key]: e.target.value }))}
-                    placeholder={f.placeholder} type={f.key === 'email' ? 'email' : 'text'}
+                    placeholder={f.placeholder} type={f.key === 'profile_email' ? 'email' : 'text'}
                     style={{ width:'100%', padding:'9px 12px', border:'1.5px solid #e2e8f0', borderRadius:10, fontSize:13, outline:'none', boxSizing:'border-box' as const, fontFamily:'inherit' }} />
                 </div>
               ))}
@@ -668,13 +681,13 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
                   <button onClick={() => copy(alumni.fax!, 'FAX')} style={{ background:'#eff6ff', border:'none', borderRadius:8, padding:'5px 12px', fontSize:11, color:'#1B3F7B', fontWeight:600, cursor:'pointer' }}>복사</button>
                 </div>
               )}
-              {alumni.email && (
+              {displayEmail && (
                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'6px 0', borderBottom:'1px solid #f1f5f9' }}>
                   <div>
-                    <p style={{ fontSize:10, color:'#94a3b8', marginBottom:2 }}>이메일</p>
-                    <p style={{ fontSize:14, fontWeight:600, color:'#0f172a' }}>{alumni.email}</p>
+                    <p style={{ fontSize:10, color:'#94a3b8', marginBottom:2 }}>이메일{alumni.profile_email ? ' (명함)' : ''}</p>
+                    <p style={{ fontSize:14, fontWeight:600, color:'#0f172a' }}>{displayEmail}</p>
                   </div>
-                  <button onClick={() => copy(alumni.email!, '이메일')} style={{ background:'#eff6ff', border:'none', borderRadius:8, padding:'5px 12px', fontSize:11, color:'#1B3F7B', fontWeight:600, cursor:'pointer' }}>복사</button>
+                  <button onClick={() => copy(displayEmail, '이메일')} style={{ background:'#eff6ff', border:'none', borderRadius:8, padding:'5px 12px', fontSize:11, color:'#1B3F7B', fontWeight:600, cursor:'pointer' }}>복사</button>
                 </div>
               )}
               {alumni.region && <InfoRow label="지역" value={'📍 ' + alumni.region} />}
@@ -782,6 +795,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
               email: alumni.email||'',
               office_phone: alumni.office_phone||'',
               fax: alumni.fax||'',
+              profile_email: alumni.profile_email||'',
               photo_url: alumni.photo_url||'', card_image_url: alumni.card_image_url||'',
               organization: alumni.organization||'한국농어촌공사'
             });
@@ -818,7 +832,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
           <p style={{ color:'#fff', fontSize:15, fontWeight:700, marginBottom:4 }}>명함 편집</p>
           <p style={{ color:'rgba(255,255,255,0.5)', fontSize:11, marginBottom:12 }}>드래그로 자르기 영역 선택 · 회전 버튼으로 방향 조정</p>
           <div style={{ maxWidth:380, width:'100%', maxHeight:'55vh', overflow:'auto', marginBottom:16, borderRadius:12 }}>
-            <ReactCrop crop={crop} onChange={c => setCrop(c)} onComplete={c => setCompletedCrop(c)}>
+          <ReactCrop crop={crop} onChange={(c: Crop) => setCrop(c)} onComplete={(c: Crop) => setCompletedCrop(c)}>
               <img ref={imgRef} src={cropSrc} onLoad={onImageLoad}
                 style={{ maxWidth:'100%', transform:`rotate(${rotation}deg)`, transition:'transform 0.25s', display:'block' }} />
             </ReactCrop>
