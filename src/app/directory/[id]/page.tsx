@@ -728,13 +728,14 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
               <button onClick={() => openMap('tmap')} style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, background:'#1B6AE4', border:'none', borderRadius:12, padding:'12px', fontSize:13, fontWeight:700, color:'#fff', cursor:'pointer', fontFamily:'inherit' }}>📡 T맵</button>
             </div>
             {/* 처음부터 지도 표시 (위성지도) */}
+            {/* 처음부터 지도 표시 (구글맵 임베드 사용) */}
             <div style={{ borderRadius:12, overflow:'hidden', border:'1px solid #e2e8f0' }}>
               <iframe
-                src={`https://map.kakao.com/?q=${encodeURIComponent(alumni.address)}&map_type=SKYVIEW`}
+                src={`https://maps.google.com/maps?q=${encodeURIComponent(alumni.address)}&t=&z=15&ie=UTF8&iwloc=&output=embed`}
                 width="100%"
                 height="220"
                 style={{ border:'none', display:'block' }}
-                title="카카오맵"
+                title="위치 지도 미리보기"
               />
             </div>
           </div>
