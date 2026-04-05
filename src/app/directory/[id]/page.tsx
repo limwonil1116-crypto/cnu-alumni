@@ -76,88 +76,111 @@ const avatarColor = (name: string) => {
 
 const F = { fontFamily:"'Apple SD Gothic Neo','Noto Sans KR',sans-serif" };
 
-// 카카오 roughmap 위성지도 컴포넌트
-function KakaoRoughMap({ address }: { address: string }) {
+const KAKAO_JS_KEY = 'c7c02f4af090a723b080114d9bee566e';
+
+// 카카오맵 SDK 로드 (전역 한 번만)
+function loadKakaoSDK(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const w = window as any;
+
+    // 이미 완전히 로드된 경우
+    if (w.kakao?.maps?.services) {
+      resolve();
+      return;
+    }
+
+    const scriptId = 'kakao-map-sdk';
+    const existing = document.getElementById(scriptId);
+
+    if (existing) {
+      // 스크립트가 있지만 아직 로딩 중 → 폴링
+      const poll = setInterval(() => {
+        if (w.kakao?.maps?.services) {
+          clearInterval(poll);
+          resolve();
+        }
+      }, 100);
+      setTimeout(() => { clearInterval(poll); reject(new Error('timeout')); }, 10000);
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.id = scriptId;
+    script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_JS_KEY}&libraries=services&autoload=false`;
+    script.onload = () => {
+      w.kakao.maps.load(() => resolve());
+    };
+    script.onerror = () => reject(new Error('script load failed'));
+    document.head.appendChild(script);
+  });
+}
+
+// 카카오맵 위성지도 컴포넌트
+function KakaoMap({ address }: { address: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [loaded, setLoaded] = useState(false);
+  const [status, setStatus] = useState<'loading' | 'ok' | 'error'>('loading');
 
   useEffect(() => {
     if (!address) return;
+    let cancelled = false;
 
-    const KAKAO_JS_KEY = 'c7c02f4af090a723b080114d9bee566e';
+    const run = async () => {
+      try {
+        await loadKakaoSDK();
+        if (cancelled) return;
 
-    const init = () => {
-      const kakao = (window as any).kakao;
-      if (!kakao?.maps) return;
-
-      kakao.maps.load(() => {
-        if (!containerRef.current) return;
-        containerRef.current.innerHTML = '';
-
+        const kakao = (window as any).kakao;
         const geocoder = new kakao.maps.services.Geocoder();
+
         geocoder.addressSearch(address, (result: any[], status: string) => {
-          if (status !== kakao.maps.services.Status.OK || !result.length) return;
+          if (cancelled) return;
+
+          if (status !== kakao.maps.services.Status.OK || !result.length) {
+            setStatus('error');
+            return;
+          }
 
           const coords = new kakao.maps.LatLng(
             parseFloat(result[0].y),
             parseFloat(result[0].x)
           );
 
+          if (!containerRef.current) return;
+
           const map = new kakao.maps.Map(containerRef.current, {
             center: coords,
             level: 3,
-            mapTypeId: kakao.maps.MapTypeId.HYBRID, // 위성+레이블
+            mapTypeId: kakao.maps.MapTypeId.HYBRID,
           });
 
           new kakao.maps.Marker({ position: coords, map });
-          setLoaded(true);
+          setStatus('ok');
         });
-      });
+      } catch (e) {
+        if (!cancelled) setStatus('error');
+      }
     };
 
-    // 이미 로드된 경우
-    if ((window as any).kakao?.maps) {
-      init();
-      return;
-    }
-
-    // 스크립트 로드
-    const scriptId = 'kakao-map-sdk';
-    if (!document.getElementById(scriptId)) {
-      const script = document.createElement('script');
-      script.id = scriptId;
-      script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_JS_KEY}&libraries=services&autoload=false`;
-      script.onload = init;
-      document.head.appendChild(script);
-    } else {
-      // 스크립트는 있지만 아직 로딩 중일 수 있으므로 잠시 대기
-      const timer = setInterval(() => {
-        if ((window as any).kakao?.maps) {
-          clearInterval(timer);
-          init();
-        }
-      }, 100);
-      return () => clearInterval(timer);
-    }
+    run();
+    return () => { cancelled = true; };
   }, [address]);
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: 240 }}>
-      {!loaded && (
-        <div style={{
-          position: 'absolute', inset: 0,
-          background: '#f1f5f9',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 13, color: '#94a3b8', fontWeight: 600,
-          borderRadius: 12,
-        }}>
-          🗺 지도 불러오는 중...
+    <div style={{ position: 'relative', width: '100%', height: 240, borderRadius: 12, overflow: 'hidden' }}>
+      {status === 'loading' && (
+        <div style={{ position: 'absolute', inset: 0, background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, color: '#94a3b8', fontWeight: 600, zIndex: 1 }}>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ width: 20, height: 20, border: '2px solid #e2e8f0', borderTop: '2px solid #1B3F7B', borderRadius: '50%', animation: 'spin 0.7s linear infinite', margin: '0 auto 8px' }} />
+            지도 불러오는 중...
+          </div>
         </div>
       )}
-      <div
-        ref={containerRef}
-        style={{ width: '100%', height: '100%', borderRadius: 12 }}
-      />
+      {status === 'error' && (
+        <div style={{ position: 'absolute', inset: 0, background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, color: '#94a3b8', zIndex: 1 }}>
+          주소를 지도에서 찾을 수 없습니다
+        </div>
+      )}
+      <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
     </div>
   );
 }
@@ -219,7 +242,6 @@ async function extractCardInfo(file: File): Promise<{
   });
   if (!res.ok) throw new Error('API 오류');
   const data = await res.json();
-  console.log('✨ Gemini 분석 결과:', data);
   return data;
 }
 
@@ -237,7 +259,6 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
   const [contactSaved, setContactSaved] = useState(false);
   const [extracting, setExtracting] = useState(false);
 
-  // 명함 편집 모달
   const [showCropModal, setShowCropModal] = useState(false);
   const [cropSrc, setCropSrc] = useState('');
   const [cropFile, setCropFile] = useState<File | null>(null);
@@ -246,7 +267,6 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
   const [rotation, setRotation] = useState(0);
   const imgRef = useRef<HTMLImageElement>(null);
 
-  // 프로필 사진 편집 모달
   const [showPhotoCropModal, setShowPhotoCropModal] = useState(false);
   const [photoCropSrc, setPhotoCropSrc] = useState('');
   const [photoCropFile, setPhotoCropFile] = useState<File | null>(null);
@@ -276,25 +296,23 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
       const detail: AlumniDetail = {
         id: data.id, name: data.name,
         department: (data as any).department_name || '',
-        admission_year: data.admission_year,
-        graduation_year: data.graduation_year,
+        admission_year: data.admission_year, graduation_year: data.graduation_year,
         phone: data.phone, email: data.email,
         company: p?.company, job_title: p?.job_title,
         region: p?.region, address: p?.address,
         bio: p?.bio, photo_url: p?.photo_url,
         card_image_url: p?.card_image_url, profile_id: p?.id,
         organization: (data as any).organization || '한국농어촌공사',
-        office_phone: p?.office_phone, fax: p?.fax,
-        profile_email: p?.email,
+        office_phone: p?.office_phone, fax: p?.fax, profile_email: p?.email,
       };
       setAlumni(detail);
       setForm({
         company: p?.company || '', job_title: p?.job_title || '',
         region: p?.region || '', address: p?.address || '',
-        bio: p?.bio || '', phone: data.phone || '',
-        email: data.email || '', office_phone: p?.office_phone || '',
-        fax: p?.fax || '', profile_email: p?.email || '',
-        photo_url: p?.photo_url || '', card_image_url: p?.card_image_url || '',
+        bio: p?.bio || '', phone: data.phone || '', email: data.email || '',
+        office_phone: p?.office_phone || '', fax: p?.fax || '',
+        profile_email: p?.email || '', photo_url: p?.photo_url || '',
+        card_image_url: p?.card_image_url || '',
         organization: (data as any).organization || '한국농어촌공사',
       });
     }
@@ -594,12 +612,8 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
           {alumni.company && <p style={{ color:'rgba(255,255,255,0.55)', fontSize:12 }}>{alumni.company}</p>}
         </div>
         <div style={{ display:'flex', justifyContent:'center', gap:8, flexWrap:'wrap', padding:'0 16px 14px' }}>
-          {alumni.admission_year && (
-            <span style={{ background:'rgba(255,255,255,0.15)', color:'#fff', fontSize:11, padding:'4px 14px', borderRadius:20, border:'1px solid rgba(255,255,255,0.2)' }}>입학 {alumni.admission_year}년</span>
-          )}
-          {alumni.department && (
-            <span style={{ background:'rgba(255,255,255,0.15)', color:'#fff', fontSize:11, padding:'4px 14px', borderRadius:20, border:'1px solid rgba(255,255,255,0.2)' }}>{alumni.department}</span>
-          )}
+          {alumni.admission_year && <span style={{ background:'rgba(255,255,255,0.15)', color:'#fff', fontSize:11, padding:'4px 14px', borderRadius:20, border:'1px solid rgba(255,255,255,0.2)' }}>입학 {alumni.admission_year}년</span>}
+          {alumni.department && <span style={{ background:'rgba(255,255,255,0.15)', color:'#fff', fontSize:11, padding:'4px 14px', borderRadius:20, border:'1px solid rgba(255,255,255,0.2)' }}>{alumni.department}</span>}
           <span style={{ display:'flex', alignItems:'center', gap:5, background:'rgba(255,255,255,0.15)', color:'#fff', fontSize:11, padding:'4px 10px', borderRadius:20, border:'1px solid rgba(255,255,255,0.2)' }}>
             {ORG_LOGO[org] ? <img src={ORG_LOGO[org]} alt={org} onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} style={{ height:14, width:'auto', objectFit:'contain' }} /> : ORG_EMOJI[org] ? <span>{ORG_EMOJI[org]}</span> : null}
             {org}
@@ -797,10 +811,8 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
               <button onClick={() => openMap('kakaonavi')} style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, background:'#FF6B35', border:'none', borderRadius:12, padding:'12px', fontSize:13, fontWeight:700, color:'#fff', cursor:'pointer', fontFamily:'inherit' }}>🚗 카카오내비</button>
               <button onClick={() => openMap('tmap')} style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, background:'#1B6AE4', border:'none', borderRadius:12, padding:'12px', fontSize:13, fontWeight:700, color:'#fff', cursor:'pointer', fontFamily:'inherit' }}>📡 T맵</button>
             </div>
-            {/* 카카오맵 위성지도 - JavaScript SDK */}
-            <div style={{ borderRadius:12, overflow:'hidden', border:'1px solid #e2e8f0' }}>
-              <KakaoRoughMap address={alumni.address} />
-            </div>
+            {/* 카카오맵 위성지도 */}
+            <KakaoMap address={alumni.address} />
           </div>
         )}
 
