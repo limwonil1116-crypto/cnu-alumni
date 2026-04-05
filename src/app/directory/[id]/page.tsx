@@ -526,19 +526,23 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
   const openMap = (type: 'kakao' | 'naver' | 'kakaonavi' | 'tmap') => {
     if (!alumni?.address) return;
     const addr = encodeURIComponent(alumni.address);
-
+  
     if (type === 'kakao') {
+      // 카카오맵 - 검색
       window.location.href = `kakaomap://search?q=${addr}`;
       setTimeout(() => window.open(`https://map.kakao.com/link/search/${addr}`, '_blank'), 1500);
     } else if (type === 'naver') {
+      // 네이버맵
       window.location.href = `nmap://search?query=${addr}&appname=com.cnu.alumni`;
       setTimeout(() => window.open(`https://map.naver.com/v5/search/${addr}`, '_blank'), 1500);
     } else if (type === 'kakaonavi') {
-      window.location.href = `kakaonavi://navigate?dest_name=${addr}&dest_x=0&dest_y=0`;
+      // 카카오내비 - 카카오맵 앱으로 열면 내비 버튼 연결됨
+      window.location.href = `kakaomap://route?ep=${addr}&by=CAR`;
       setTimeout(() => window.open(`https://map.kakao.com/link/search/${addr}`, '_blank'), 1500);
     } else if (type === 'tmap') {
+      // T맵
       window.location.href = `tmap://search?name=${addr}`;
-      setTimeout(() => window.open(`https://www.tmap.co.kr/search?query=${addr}`, '_blank'), 1500);
+      setTimeout(() => window.open(`https://www.google.com/maps/search/?api=1&query=${addr}`, '_blank'), 1500);
     }
   };
 
