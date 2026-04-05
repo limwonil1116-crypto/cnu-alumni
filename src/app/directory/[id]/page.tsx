@@ -522,13 +522,13 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
     setTimeout(() => setContactSaved(false), 2500);
   };
 
-  // 지도 앱 열기 - 수정된 URL
+  // 지도 앱 열기
   const openMap = (type: 'kakao' | 'naver' | 'kakaonavi' | 'tmap') => {
     if (!alumni?.address) return;
     const addr = encodeURIComponent(alumni.address);
-  
+
     if (type === 'kakao') {
-      // 카카오맵 - 검색
+      // 카카오맵 - 주소 검색
       window.location.href = `kakaomap://search?q=${addr}`;
       setTimeout(() => window.open(`https://map.kakao.com/link/search/${addr}`, '_blank'), 1500);
     } else if (type === 'naver') {
@@ -536,11 +536,11 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
       window.location.href = `nmap://search?query=${addr}&appname=com.cnu.alumni`;
       setTimeout(() => window.open(`https://map.naver.com/v5/search/${addr}`, '_blank'), 1500);
     } else if (type === 'kakaonavi') {
-      // 카카오내비 - 카카오맵 앱으로 열면 내비 버튼 연결됨
-      window.location.href = `kakaomap://route?ep=${addr}&by=CAR`;
+      // 카카오내비 - 목적지 검색으로 실행
+      window.location.href = `kakaonavi://navigate?destination[name]=${addr}&destination[search_keyword]=${addr}`;
       setTimeout(() => window.open(`https://map.kakao.com/link/search/${addr}`, '_blank'), 1500);
     } else if (type === 'tmap') {
-      // T맵
+      // T맵 - 앱 실행, 미설치시 구글맵
       window.location.href = `tmap://search?name=${addr}`;
       setTimeout(() => window.open(`https://www.google.com/maps/search/?api=1&query=${addr}`, '_blank'), 1500);
     }
