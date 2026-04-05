@@ -37,26 +37,26 @@ const ORG_LIST = [
 ];
 
 const ORG_LOGO: Record<string, string> = {
-  '한국농어촌공사': '/logos/krc.png',
-  '농림축산식품부': '/logos/mafra.png',
-  '충남도청': '/logos/chungnam.png',
-  '세종특별자치시': '/logos/sejong.png',
-  '대전광역시': '/logos/daejeon.png',
-  '천안시': '/logos/cheonan.png',
-  '공주시': '/logos/gongju.png',
-  '보령시': '/logos/boryeong.png',
-  '아산시': '/logos/asan.png',
-  '서산시': '/logos/seosan.png',
-  '논산시': '/logos/nonsan.png',
-  '계룡시': '/logos/gyeryong.png',
-  '당진시': '/logos/dangjin.png',
-  '금산군': '/logos/geumsan.png',
-  '부여군': '/logos/buyeo.png',
-  '서천군': '/logos/seocheon.png',
-  '청양군': '/logos/cheongyang.png',
-  '홍성군': '/logos/hongseong.png',
-  '예산군': '/logos/yesan.png',
-  '태안군': '/logos/taean.png',
+  '한국농어촌공사':  '/logos/krc.png',
+  '농림축산식품부':  '/logos/mafra.png',
+  '충남도청':        '/logos/chungnam.png',
+  '세종특별자치시':  '/logos/sejong.png',
+  '대전광역시':      '/logos/daejeon.png',
+  '천안시':          '/logos/cheonan.png',
+  '공주시':          '/logos/gongju.png',
+  '보령시':          '/logos/boryeong.png',
+  '아산시':          '/logos/asan.png',
+  '서산시':          '/logos/seosan.png',
+  '논산시':          '/logos/nonsan.png',
+  '계룡시':          '/logos/gyeryong.png',
+  '당진시':          '/logos/dangjin.png',
+  '금산군':          '/logos/geumsan.png',
+  '부여군':          '/logos/buyeo.png',
+  '서천군':          '/logos/seocheon.png',
+  '청양군':          '/logos/cheongyang.png',
+  '홍성군':          '/logos/hongseong.png',
+  '예산군':          '/logos/yesan.png',
+  '태안군':          '/logos/taean.png',
 };
 
 const ORG_EMOJI: Record<string, string> = {
@@ -75,6 +75,77 @@ const avatarColor = (name: string) => {
 };
 
 const F = { fontFamily:"'Apple SD Gothic Neo','Noto Sans KR',sans-serif" };
+
+// 카카오 REST API 지오코딩 + OpenStreetMap 지도
+function AddressMap({ address }: { address: string }) {
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [status, setStatus] = useState<'loading' | 'ok' | 'error'>('loading');
+  const [debugMsg, setDebugMsg] = useState('');
+
+  useEffect(() => {
+    if (!address) return;
+
+    const geocode = async () => {
+      try {
+        const res = await fetch(`/api/naver-geocode?query=${encodeURIComponent(address)}`);
+        const data = await res.json();
+        console.log('📍 지오코딩 응답:', JSON.stringify(data));
+        setDebugMsg(JSON.stringify(data).slice(0, 100));
+
+        if (data?.documents?.length) {
+          const doc = data.documents[0];
+          const lat = parseFloat(doc.y);
+          const lng = parseFloat(doc.x);
+          console.log('✅ 좌표:', lat, lng);
+          setCoords({ lat, lng });
+          setStatus('ok');
+        } else {
+          console.warn('❌ 좌표 없음');
+          setStatus('error');
+        }
+      } catch (e) {
+        console.error('❌ 오류:', e);
+        setStatus('error');
+      }
+    };
+
+    geocode();
+  }, [address]);
+
+  if (status === 'loading') return (
+    <div style={{ width: '100%', height: 240, borderRadius: 12, background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, color: '#94a3b8' }}>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ width: 20, height: 20, border: '2px solid #e2e8f0', borderTop: '2px solid #1B3F7B', borderRadius: '50%', animation: 'spin 0.7s linear infinite', margin: '0 auto 8px' }} />
+        지도 불러오는 중...
+      </div>
+    </div>
+  );
+
+  if (status === 'error' || !coords) return (
+    <div style={{ width: '100%', height: 240, borderRadius: 12, background: '#f8fafc', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: '#94a3b8', padding: 16 }}>
+      <span>지도를 불러올 수 없습니다</span>
+      {debugMsg && <span style={{ fontSize: 10, marginTop: 6, color: '#cbd5e1', textAlign: 'center', wordBreak: 'break-all' }}>{debugMsg}</span>}
+    </div>
+  );
+
+  const { lat, lng } = coords;
+  const delta = 0.002;
+  const bbox = `${lng - delta},${lat - delta},${lng + delta},${lat + delta}`;
+  const mapUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=cyclemap&marker=${lat},${lng}`;
+
+  return (
+    <div style={{ width: '100%', height: 240, borderRadius: 12, overflow: 'hidden', border: '1px solid #e2e8f0' }}>
+      <iframe
+        src={mapUrl}
+        width="100%"
+        height="240"
+        style={{ border: 'none', display: 'block' }}
+        title="지도"
+        loading="lazy"
+      />
+    </div>
+  );
+}
 
 function saveContact(alumni: AlumniDetail) {
   const displayEmail = alumni.profile_email || alumni.email;
@@ -110,8 +181,7 @@ async function compressImage(file: File): Promise<string> {
           if (w > h) { h = Math.round((h / w) * MAX); w = MAX; }
           else { w = Math.round((w / h) * MAX); h = MAX; }
         }
-        canvas.width = w;
-        canvas.height = h;
+        canvas.width = w; canvas.height = h;
         canvas.getContext('2d')!.drawImage(img, 0, 0, w, h);
         resolve(canvas.toDataURL('image/jpeg', 0.75));
       };
@@ -133,67 +203,7 @@ async function extractCardInfo(file: File): Promise<{
     body: JSON.stringify({ imageBase64 }),
   });
   if (!res.ok) throw new Error('API 오류');
-  const data = await res.json();
-  console.log('✨ Gemini 분석 결과:', data);
-  return data;
-}
-
-// ── 네이버(좌표 검색) + 구글맵(화면 표시) 하이브리드 컴포넌트 ──
-function HybridMap({ address }: { address: string }) {
-  // 1순위: 만약 네이버가 실패하더라도 뻗지 않도록, 기본 구글맵 주소(글씨 검색)를 세팅해 둡니다.
-  const [mapUrl, setMapUrl] = useState(`https://maps.google.com/maps?q=${encodeURIComponent(address)}&hl=ko&z=16&output=embed`);
-
-  useEffect(() => {
-    const clientId = process.env.NEXT_PUBLIC_NAVER_CLIENT_ID;
-    if (!clientId || !address) return;
-
-    const scriptId = 'naver-geocode-script';
-    let script = document.getElementById(scriptId) as HTMLScriptElement;
-
-    // 네이버에게 주소를 주고 GPS 좌표(위도, 경도)를 캐내는 함수
-    const getCoordinates = () => {
-      const naver = (window as any).naver;
-      if (!naver || !naver.maps || !naver.maps.Service) return;
-
-      naver.maps.Service.geocode({ query: address }, (status: any, response: any) => {
-        // 네이버가 정확한 좌표를 찾았다면?
-        if (status === naver.maps.Service.Status.OK && response.v2.addresses.length > 0) {
-          const item = response.v2.addresses[0];
-          const lat = item.y; // 위도
-          const lng = item.x; // 경도
-          
-          // 구글맵에 글씨 대신 정확한 GPS 좌표(lat, lng)를 쏴서 핀을 꽂습니다!
-          setMapUrl(`https://maps.google.com/maps?q=${lat},${lng}&hl=ko&z=16&output=embed`);
-        }
-      });
-    };
-
-    // 네이버 스크립트 몰래 불러오기 (화면엔 안 보임)
-    if (!script) {
-      script = document.createElement('script');
-      script.id = scriptId;
-      script.src = `https://openapi.map.naver.com/openapi/v3/maps.js?ncpClientId=${clientId}&submodules=geocoder`;
-      script.onload = getCoordinates;
-      // 만약 네이버 스크립트가 차단(CORS 등) 당해도 아무 일 없었다는 듯이 무시 (기본 구글맵이 뜸)
-      script.onerror = () => console.log('네이버 API 로드 실패, 기본 구글맵을 사용합니다.');
-      document.head.appendChild(script);
-    } else if ((window as any).naver) {
-      getCoordinates();
-    } else {
-      script.addEventListener('load', getCoordinates);
-    }
-  }, [address]);
-
-  return (
-    <iframe
-      src={mapUrl}
-      width="100%"
-      height="220"
-      style={{ border: 'none', display: 'block' }}
-      title="위치 지도 미리보기"
-      loading="lazy"
-    />
-  );
+  return await res.json();
 }
 
 export default function ProfileDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -210,7 +220,6 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
   const [contactSaved, setContactSaved] = useState(false);
   const [extracting, setExtracting] = useState(false);
 
-  // 명함 편집 모달
   const [showCropModal, setShowCropModal] = useState(false);
   const [cropSrc, setCropSrc] = useState('');
   const [cropFile, setCropFile] = useState<File | null>(null);
@@ -219,7 +228,6 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
   const [rotation, setRotation] = useState(0);
   const imgRef = useRef<HTMLImageElement>(null);
 
-  // 프로필 사진 편집 모달
   const [showPhotoCropModal, setShowPhotoCropModal] = useState(false);
   const [photoCropSrc, setPhotoCropSrc] = useState('');
   const [photoCropFile, setPhotoCropFile] = useState<File | null>(null);
@@ -249,29 +257,23 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
       const detail: AlumniDetail = {
         id: data.id, name: data.name,
         department: (data as any).department_name || '',
-        admission_year: data.admission_year,
-        graduation_year: data.graduation_year,
-        phone: data.phone,
-        email: data.email,
+        admission_year: data.admission_year, graduation_year: data.graduation_year,
+        phone: data.phone, email: data.email,
         company: p?.company, job_title: p?.job_title,
         region: p?.region, address: p?.address,
         bio: p?.bio, photo_url: p?.photo_url,
         card_image_url: p?.card_image_url, profile_id: p?.id,
         organization: (data as any).organization || '한국농어촌공사',
-        office_phone: p?.office_phone,
-        fax: p?.fax,
-        profile_email: p?.email,
+        office_phone: p?.office_phone, fax: p?.fax, profile_email: p?.email,
       };
       setAlumni(detail);
       setForm({
         company: p?.company || '', job_title: p?.job_title || '',
         region: p?.region || '', address: p?.address || '',
-        bio: p?.bio || '', phone: data.phone || '',
-        email: data.email || '',
-        office_phone: p?.office_phone || '',
-        fax: p?.fax || '',
-        profile_email: p?.email || '',
-        photo_url: p?.photo_url || '', card_image_url: p?.card_image_url || '',
+        bio: p?.bio || '', phone: data.phone || '', email: data.email || '',
+        office_phone: p?.office_phone || '', fax: p?.fax || '',
+        profile_email: p?.email || '', photo_url: p?.photo_url || '',
+        card_image_url: p?.card_image_url || '',
         organization: (data as any).organization || '한국농어촌공사',
       });
     }
@@ -287,16 +289,12 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
   };
 
   const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = '';
+    const file = e.target.files?.[0]; e.target.value = '';
     if (!file) return;
     const reader = new FileReader();
     reader.onload = () => {
-      setPhotoCropSrc(reader.result as string);
-      setPhotoCropFile(file);
-      setPhotoCrop(undefined);
-      setPhotoCompletedCrop(undefined);
-      setPhotoRotation(0);
+      setPhotoCropSrc(reader.result as string); setPhotoCropFile(file);
+      setPhotoCrop(undefined); setPhotoCompletedCrop(undefined); setPhotoRotation(0);
       setShowPhotoCropModal(true);
     };
     reader.readAsDataURL(file);
@@ -304,8 +302,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
 
   const onPhotoImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
     const { width, height } = e.currentTarget;
-    const c = centerCrop(makeAspectCrop({ unit: '%', width: 80 }, 1, width, height), width, height);
-    setPhotoCrop(c);
+    setPhotoCrop(centerCrop(makeAspectCrop({ unit: '%', width: 80 }, 1, width, height), width, height));
   };
 
   const handlePhotoCropComplete = useCallback(async () => {
@@ -314,10 +311,8 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
     if (photoCompletedCrop && photoImgRef.current && photoCompletedCrop.width > 0 && photoCompletedCrop.height > 0) {
       const canvas = document.createElement('canvas');
       const img = photoImgRef.current;
-      const scaleX = img.naturalWidth / img.width;
-      const scaleY = img.naturalHeight / img.height;
-      canvas.width = photoCompletedCrop.width * scaleX;
-      canvas.height = photoCompletedCrop.height * scaleY;
+      const scaleX = img.naturalWidth / img.width; const scaleY = img.naturalHeight / img.height;
+      canvas.width = photoCompletedCrop.width * scaleX; canvas.height = photoCompletedCrop.height * scaleY;
       const ctx = canvas.getContext('2d');
       if (ctx) {
         if (photoRotation !== 0) {
@@ -325,8 +320,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
           const cos = Math.abs(Math.cos(rad)); const sin = Math.abs(Math.sin(rad));
           canvas.width = canvas.height * sin + canvas.width * cos;
           canvas.height = canvas.height * cos + canvas.width * sin;
-          ctx.translate(canvas.width / 2, canvas.height / 2);
-          ctx.rotate(rad);
+          ctx.translate(canvas.width / 2, canvas.height / 2); ctx.rotate(rad);
           ctx.translate(-canvas.width / 2, -canvas.height / 2);
         }
         ctx.drawImage(img, photoCompletedCrop.x * scaleX, photoCompletedCrop.y * scaleY, photoCompletedCrop.width * scaleX, photoCompletedCrop.height * scaleY, 0, 0, photoCompletedCrop.width * scaleX, photoCompletedCrop.height * scaleY);
@@ -351,8 +345,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
       }
     }
     setShowPhotoCropModal(false);
-    setUploadingPhoto(true);
-    showToast('사진 업로드 중...');
+    setUploadingPhoto(true); showToast('사진 업로드 중...');
     const url = await uploadImage(fileToUpload, 'profiles');
     if (url) { setForm(f => ({ ...f, photo_url: url })); showToast('사진 업로드 완료'); }
     else showToast('업로드 실패');
@@ -360,8 +353,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
   }, [photoCompletedCrop, photoCropFile, photoRotation]);
 
   const handleCardFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = '';
+    const file = e.target.files?.[0]; e.target.value = '';
     if (!file) return;
     const reader = new FileReader();
     reader.onload = () => {
@@ -484,8 +476,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
   const handleSaveContact = () => {
     if (!alumni) return;
     saveContact(alumni);
-    setContactSaved(true);
-    showToast('연락처를 저장합니다');
+    setContactSaved(true); showToast('연락처를 저장합니다');
     setTimeout(() => setContactSaved(false), 2500);
   };
 
@@ -503,7 +494,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
       setTimeout(() => window.open(`https://map.kakao.com/link/search/${addr}`, '_blank'), 1500);
     } else if (type === 'tmap') {
       window.location.href = `tmap://search?name=${addr}`;
-      setTimeout(() => window.open(`https://maps.google.com/maps?q=${addr}`, '_blank'), 1500);
+      setTimeout(() => window.open(`https://www.google.com/maps/search/?api=1&query=${addr}`, '_blank'), 1500);
     }
   };
 
@@ -582,12 +573,8 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
           {alumni.company && <p style={{ color:'rgba(255,255,255,0.55)', fontSize:12 }}>{alumni.company}</p>}
         </div>
         <div style={{ display:'flex', justifyContent:'center', gap:8, flexWrap:'wrap', padding:'0 16px 14px' }}>
-          {alumni.admission_year && (
-            <span style={{ background:'rgba(255,255,255,0.15)', color:'#fff', fontSize:11, padding:'4px 14px', borderRadius:20, border:'1px solid rgba(255,255,255,0.2)' }}>입학 {alumni.admission_year}년</span>
-          )}
-          {alumni.department && (
-            <span style={{ background:'rgba(255,255,255,0.15)', color:'#fff', fontSize:11, padding:'4px 14px', borderRadius:20, border:'1px solid rgba(255,255,255,0.2)' }}>{alumni.department}</span>
-          )}
+          {alumni.admission_year && <span style={{ background:'rgba(255,255,255,0.15)', color:'#fff', fontSize:11, padding:'4px 14px', borderRadius:20, border:'1px solid rgba(255,255,255,0.2)' }}>입학 {alumni.admission_year}년</span>}
+          {alumni.department && <span style={{ background:'rgba(255,255,255,0.15)', color:'#fff', fontSize:11, padding:'4px 14px', borderRadius:20, border:'1px solid rgba(255,255,255,0.2)' }}>{alumni.department}</span>}
           <span style={{ display:'flex', alignItems:'center', gap:5, background:'rgba(255,255,255,0.15)', color:'#fff', fontSize:11, padding:'4px 10px', borderRadius:20, border:'1px solid rgba(255,255,255,0.2)' }}>
             {ORG_LOGO[org] ? <img src={ORG_LOGO[org]} alt={org} onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} style={{ height:14, width:'auto', objectFit:'contain' }} /> : ORG_EMOJI[org] ? <span>{ORG_EMOJI[org]}</span> : null}
             {org}
@@ -596,7 +583,6 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
       </div>
 
       <div style={{ flex:1, overflowY:'auto', padding:'14px 14px 40px' }}>
-
         {editMode && (
           <>
             <div style={{ background:'#eff6ff', border:'1px solid #bfdbfe', borderRadius:12, padding:'10px 14px', marginBottom:8, fontSize:13, color:'#1B3F7B' }}>
@@ -619,7 +605,6 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
           </div>
         )}
 
-        {/* ── 연락처 저장 + 연락 버튼 ── */}
         {!editMode && (alumni.phone || displayEmail) && (
           <div style={{ background:'#fff', borderRadius:16, padding:'14px 16px', marginBottom:10, boxShadow:'0 1px 4px rgba(13,45,110,0.07)', border:'1px solid #e2e8f0' }}>
             {alumni.phone && (
@@ -772,7 +757,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
           )}
         </div>
 
-        {/* ── 위치 카드 - 하이브리드 지도 표시 ── */}
+        {/* ── 위치 카드 ── */}
         {!editMode && alumni.address && (
           <div style={{ background:'#fff', borderRadius:16, padding:'16px', marginBottom:10, boxShadow:'0 1px 4px rgba(13,45,110,0.07)', border:'1px solid #e2e8f0' }}>
             <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10 }}>
@@ -785,11 +770,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
               <button onClick={() => openMap('kakaonavi')} style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, background:'#FF6B35', border:'none', borderRadius:12, padding:'12px', fontSize:13, fontWeight:700, color:'#fff', cursor:'pointer', fontFamily:'inherit' }}>🚗 카카오내비</button>
               <button onClick={() => openMap('tmap')} style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, background:'#1B6AE4', border:'none', borderRadius:12, padding:'12px', fontSize:13, fontWeight:700, color:'#fff', cursor:'pointer', fontFamily:'inherit' }}>📡 T맵</button>
             </div>
-
-            {/* 하이브리드 지도 (네이버 좌표 + 구글맵 표시) */}
-            <div style={{ borderRadius:12, overflow:'hidden', border:'1px solid #e2e8f0' }}>
-              <HybridMap address={alumni.address} />
-            </div>
+            <AddressMap address={alumni.address} />
           </div>
         )}
 
@@ -812,7 +793,6 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
         )}
       </div>
 
-      {/* ── AI 분석 로딩 오버레이 ── */}
       {extracting && (
         <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.75)', zIndex:300, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', fontFamily:'inherit' }}>
           <div style={{ background:'#fff', borderRadius:24, padding:'32px 28px', textAlign:'center', maxWidth:280, width:'90%', boxShadow:'0 20px 60px rgba(0,0,0,0.4)' }}>
@@ -829,7 +809,6 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
         </div>
       )}
 
-      {/* ── 프로필 사진 편집 모달 ── */}
       {showPhotoCropModal && photoCropSrc && (
         <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.92)', zIndex:200, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:16, fontFamily:'inherit' }}>
           <p style={{ color:'#fff', fontSize:15, fontWeight:700, marginBottom:4 }}>프로필 사진 편집</p>
@@ -849,7 +828,6 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
         </div>
       )}
 
-      {/* ── 명함 편집 모달 ── */}
       {showCropModal && cropSrc && (
         <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.92)', zIndex:200, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:16, fontFamily:'inherit' }}>
           <p style={{ color:'#fff', fontSize:15, fontWeight:700, marginBottom:4 }}>명함 편집</p>
