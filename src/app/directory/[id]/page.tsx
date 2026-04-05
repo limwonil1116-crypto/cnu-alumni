@@ -145,71 +145,103 @@ function NaverMap({ address }: { address: string }) {
 
   useEffect(() => {
     const clientId = process.env.NEXT_PUBLIC_NAVER_CLIENT_ID;
+
     if (!clientId) {
-      setStatus('🚨 API 키를 찾을 수 없습니다. (Vercel 환경변수 확인)');
+      setStatus('🚨 NEXT_PUBLIC_NAVER_CLIENT_ID 없음');
       return;
     }
+
     if (!address) {
       setStatus('주소 정보가 없습니다.');
       return;
     }
 
-    const scriptId = 'naver-map-script';
-    let script = document.getElementById(scriptId) as HTMLScriptElement;
+    let cancelled = false;
 
-    // 네이버 지도가 완벽히 로드될 때까지 기다렸다가 실행하는 함수
-    const initMap = (retries = 0) => {
-      const naver = (window as any).naver;
-
-      // 네이버 지도의 세부 모듈(Geocoding)이 늦게 도착할 수 있으므로 최대 10번(2초) 재시도
-      if (!naver || !naver.maps || !naver.maps.Service) {
-        if (retries < 10) {
-          setTimeout(() => initMap(retries + 1), 200); // 0.2초 뒤에 다시 확인
+    const loadScript = () =>
+      new Promise<void>((resolve, reject) => {
+        if ((window as any).naver?.maps) {
+          resolve();
           return;
         }
-        // 10번 다 기다렸는데도 안 오면 진짜 에러
-        setStatus(`🚨 지도 모듈 로드 실패 (새로고침 해주세요)`);
-        return;
-      }
 
-      // 1. 주소를 좌표로 변환
-      naver.maps.Service.geocode({ query: address }, (status: any, response: any) => {
-        if (status !== naver.maps.Service.Status.OK || !response.v2.addresses.length) {
+        const scriptId = 'naver-map-script';
+        const existing = document.getElementById(scriptId) as HTMLScriptElement | null;
+
+        if (existing) {
+          existing.addEventListener('load', () => resolve(), { once: true });
+          existing.addEventListener('error', () => reject(new Error('script load error')), { once: true });
+          return;
+        }
+
+        const script = document.createElement('script');
+        script.id = scriptId;
+        script.src = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpClientId=${clientId}`;
+        script.async = true;
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error('script load error'));
+        document.head.appendChild(script);
+      });
+
+    const run = async () => {
+      try {
+        await loadScript();
+
+        const res = await fetch(`/api/naver-geocode?query=${encodeURIComponent(address)}`);
+        const data = await res.json();
+
+        if (!res.ok || !data?.addresses?.length) {
           setStatus('지도에서 주소를 찾을 수 없습니다.');
           return;
         }
 
-        const item = response.v2.addresses[0];
+        if (cancelled) return;
+
+        const item = data.addresses[0];
+        const naver = (window as any).naver;
         const point = new naver.maps.LatLng(Number(item.y), Number(item.x));
 
-        // 2. 화면에 지도 및 마커 표시
         if (mapRef.current) {
-          mapRef.current.innerHTML = ''; // 에러 메시지 지우기
+          mapRef.current.innerHTML = '';
           const map = new naver.maps.Map(mapRef.current, {
             center: point,
             zoom: 16,
           });
-          new naver.maps.Marker({ position: point, map: map });
+          new naver.maps.Marker({
+            position: point,
+            map,
+          });
         }
-      });
+      } catch (error) {
+        console.error(error);
+        setStatus('🚨 지도 로드 실패');
+      }
     };
 
-    if (!script) {
-      script = document.createElement('script');
-      script.id = scriptId;
-      script.src = `https://openapi.map.naver.com/openapi/v3/maps.js?ncpClientId=${clientId}&submodules=geocoder`;
-      script.onload = () => initMap(0);
-      script.onerror = () => setStatus('🚨 네이버 지도 차단됨 (도메인 또는 키 오류)');
-      document.head.appendChild(script);
-    } else {
-      initMap(0);
-    }
+    run();
+
+    return () => {
+      cancelled = true;
+    };
   }, [address]);
 
   return (
-    <div 
-      ref={mapRef} 
-      style={{ width: '100%', height: '220px', backgroundColor: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', color: '#64748b', fontWeight: 600, padding: '20px', textAlign: 'center', lineHeight: '1.5' }}
+    <div
+      ref={mapRef}
+      style={{
+        width: '100%',
+        height: '220px',
+        backgroundColor: '#f8fafc',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: '13px',
+        color: '#64748b',
+        fontWeight: 600,
+        padding: '20px',
+        textAlign: 'center',
+        lineHeight: '1.5',
+      }}
     >
       {status}
     </div>
