@@ -75,30 +75,19 @@ const avatarColor = (name: string) => {
 };
 
 const F = { fontFamily:"'Apple SD Gothic Neo','Noto Sans KR',sans-serif" };
-
 const KAKAO_JS_KEY = 'c7c02f4af090a723b080114d9bee566e';
 
-// 카카오맵 SDK 로드 (전역 한 번만)
+// 카카오맵 SDK 로드
 function loadKakaoSDK(): Promise<void> {
   return new Promise((resolve, reject) => {
     const w = window as any;
-
-    // 이미 완전히 로드된 경우
-    if (w.kakao?.maps?.services) {
-      resolve();
-      return;
-    }
+    if (w.kakao?.maps?.services) { resolve(); return; }
 
     const scriptId = 'kakao-map-sdk';
     const existing = document.getElementById(scriptId);
-
     if (existing) {
-      // 스크립트가 있지만 아직 로딩 중 → 폴링
       const poll = setInterval(() => {
-        if (w.kakao?.maps?.services) {
-          clearInterval(poll);
-          resolve();
-        }
+        if (w.kakao?.maps?.services) { clearInterval(poll); resolve(); }
       }, 100);
       setTimeout(() => { clearInterval(poll); reject(new Error('timeout')); }, 10000);
       return;
@@ -108,9 +97,16 @@ function loadKakaoSDK(): Promise<void> {
     script.id = scriptId;
     script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_JS_KEY}&libraries=services&autoload=false`;
     script.onload = () => {
-      w.kakao.maps.load(() => resolve());
+      w.kakao.maps.load(() => {
+        console.log('✅ 카카오맵 SDK 로드 완료');
+        console.log('services:', w.kakao?.maps?.services);
+        resolve();
+      });
     };
-    script.onerror = () => reject(new Error('script load failed'));
+    script.onerror = (e) => {
+      console.error('❌ 카카오맵 SDK 로드 실패:', e);
+      reject(new Error('script load failed'));
+    };
     document.head.appendChild(script);
   });
 }
@@ -119,6 +115,7 @@ function loadKakaoSDK(): Promise<void> {
 function KakaoMap({ address }: { address: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState<'loading' | 'ok' | 'error'>('loading');
+  const [errMsg, setErrMsg] = useState('');
 
   useEffect(() => {
     if (!address) return;
@@ -126,16 +123,23 @@ function KakaoMap({ address }: { address: string }) {
 
     const run = async () => {
       try {
+        console.log('🗺 지도 시작, 주소:', address);
         await loadKakaoSDK();
         if (cancelled) return;
 
         const kakao = (window as any).kakao;
-        const geocoder = new kakao.maps.services.Geocoder();
+        console.log('✅ SDK 사용 가능, services:', kakao?.maps?.services);
 
-        geocoder.addressSearch(address, (result: any[], status: string) => {
+        const geocoder = new kakao.maps.services.Geocoder();
+        console.log('✅ Geocoder 생성됨');
+
+        geocoder.addressSearch(address, (result: any[], geoStatus: string) => {
+          console.log('📍 지오코더 결과:', geoStatus, result);
           if (cancelled) return;
 
-          if (status !== kakao.maps.services.Status.OK || !result.length) {
+          if (geoStatus !== kakao.maps.services.Status.OK || !result.length) {
+            console.warn('❌ 주소 검색 실패:', geoStatus);
+            setErrMsg(`status: ${geoStatus}`);
             setStatus('error');
             return;
           }
@@ -144,6 +148,7 @@ function KakaoMap({ address }: { address: string }) {
             parseFloat(result[0].y),
             parseFloat(result[0].x)
           );
+          console.log('✅ 좌표:', result[0].y, result[0].x);
 
           if (!containerRef.current) return;
 
@@ -155,9 +160,11 @@ function KakaoMap({ address }: { address: string }) {
 
           new kakao.maps.Marker({ position: coords, map });
           setStatus('ok');
+          console.log('✅ 지도 렌더링 완료');
         });
       } catch (e) {
-        if (!cancelled) setStatus('error');
+        console.error('❌ 지도 오류:', e);
+        if (!cancelled) { setErrMsg(String(e)); setStatus('error'); }
       }
     };
 
@@ -176,8 +183,9 @@ function KakaoMap({ address }: { address: string }) {
         </div>
       )}
       {status === 'error' && (
-        <div style={{ position: 'absolute', inset: 0, background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, color: '#94a3b8', zIndex: 1 }}>
-          주소를 지도에서 찾을 수 없습니다
+        <div style={{ position: 'absolute', inset: 0, background: '#f8fafc', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: '#94a3b8', zIndex: 1, padding: 16 }}>
+          <span>주소를 지도에서 찾을 수 없습니다</span>
+          {errMsg && <span style={{ fontSize: 10, marginTop: 4, color: '#cbd5e1' }}>{errMsg}</span>}
         </div>
       )}
       <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
@@ -241,8 +249,7 @@ async function extractCardInfo(file: File): Promise<{
     body: JSON.stringify({ imageBase64 }),
   });
   if (!res.ok) throw new Error('API 오류');
-  const data = await res.json();
-  return data;
+  return await res.json();
 }
 
 export default function ProfileDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -622,7 +629,6 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
       </div>
 
       <div style={{ flex:1, overflowY:'auto', padding:'14px 14px 40px' }}>
-
         {editMode && (
           <>
             <div style={{ background:'#eff6ff', border:'1px solid #bfdbfe', borderRadius:12, padding:'10px 14px', marginBottom:8, fontSize:13, color:'#1B3F7B' }}>
@@ -645,7 +651,6 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
           </div>
         )}
 
-        {/* ── 연락처 저장 + 연락 버튼 ── */}
         {!editMode && (alumni.phone || displayEmail) && (
           <div style={{ background:'#fff', borderRadius:16, padding:'14px 16px', marginBottom:10, boxShadow:'0 1px 4px rgba(13,45,110,0.07)', border:'1px solid #e2e8f0' }}>
             {alumni.phone && (
@@ -811,7 +816,6 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
               <button onClick={() => openMap('kakaonavi')} style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, background:'#FF6B35', border:'none', borderRadius:12, padding:'12px', fontSize:13, fontWeight:700, color:'#fff', cursor:'pointer', fontFamily:'inherit' }}>🚗 카카오내비</button>
               <button onClick={() => openMap('tmap')} style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, background:'#1B6AE4', border:'none', borderRadius:12, padding:'12px', fontSize:13, fontWeight:700, color:'#fff', cursor:'pointer', fontFamily:'inherit' }}>📡 T맵</button>
             </div>
-            {/* 카카오맵 위성지도 */}
             <KakaoMap address={alumni.address} />
           </div>
         )}
@@ -835,7 +839,6 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
         )}
       </div>
 
-      {/* ── AI 분석 로딩 오버레이 ── */}
       {extracting && (
         <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.75)', zIndex:300, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', fontFamily:'inherit' }}>
           <div style={{ background:'#fff', borderRadius:24, padding:'32px 28px', textAlign:'center', maxWidth:280, width:'90%', boxShadow:'0 20px 60px rgba(0,0,0,0.4)' }}>
@@ -852,7 +855,6 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
         </div>
       )}
 
-      {/* ── 프로필 사진 편집 모달 ── */}
       {showPhotoCropModal && photoCropSrc && (
         <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.92)', zIndex:200, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:16, fontFamily:'inherit' }}>
           <p style={{ color:'#fff', fontSize:15, fontWeight:700, marginBottom:4 }}>프로필 사진 편집</p>
@@ -872,7 +874,6 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
         </div>
       )}
 
-      {/* ── 명함 편집 모달 ── */}
       {showCropModal && cropSrc && (
         <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.92)', zIndex:200, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:16, fontFamily:'inherit' }}>
           <p style={{ color:'#fff', fontSize:15, fontWeight:700, marginBottom:4 }}>명함 편집</p>
