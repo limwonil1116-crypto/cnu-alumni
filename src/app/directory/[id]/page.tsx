@@ -730,11 +730,12 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
             {/* 처음부터 지도 표시 (구글맵 임베드 사용 - 빨간 마커 포함) */}
             <div style={{ borderRadius:12, overflow:'hidden', border:'1px solid #e2e8f0' }}>
               <iframe
-                src={`https://maps.google.com/maps?q=${encodeURIComponent(alumni.address)}&z=15&output=embed`}
+                src={`https://maps.google.com/maps?q=${encodeURIComponent(alumni.address)}&z=16&output=embed`}
                 width="100%"
                 height="220"
                 style={{ border:'none', display:'block' }}
                 title="위치 지도 미리보기"
+                loading="lazy"
               />
             </div>
           </div>
