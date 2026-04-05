@@ -77,7 +77,6 @@ const avatarColor = (name: string) => {
 const F = { fontFamily:"'Apple SD Gothic Neo','Noto Sans KR',sans-serif" };
 
 function saveContact(alumni: AlumniDetail) {
-  // 이메일 우선순위: profile_email(명함) > email(카톡)
   const displayEmail = alumni.profile_email || alumni.email;
   const vcard = [
     'BEGIN:VCARD', 'VERSION:3.0',
@@ -154,6 +153,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
   const [contactSaved, setContactSaved] = useState(false);
   const [extracting, setExtracting] = useState(false);
 
+  // 명함 편집 모달
   const [showCropModal, setShowCropModal] = useState(false);
   const [cropSrc, setCropSrc] = useState('');
   const [cropFile, setCropFile] = useState<File | null>(null);
@@ -161,6 +161,15 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
   const [completedCrop, setCompletedCrop] = useState<Crop>();
   const [rotation, setRotation] = useState(0);
   const imgRef = useRef<HTMLImageElement>(null);
+
+  // 프로필 사진 편집 모달
+  const [showPhotoCropModal, setShowPhotoCropModal] = useState(false);
+  const [photoCropSrc, setPhotoCropSrc] = useState('');
+  const [photoCropFile, setPhotoCropFile] = useState<File | null>(null);
+  const [photoCrop, setPhotoCrop] = useState<Crop>();
+  const [photoCompletedCrop, setPhotoCompletedCrop] = useState<Crop>();
+  const [photoRotation, setPhotoRotation] = useState(0);
+  const photoImgRef = useRef<HTMLImageElement>(null);
 
   const photoRef = useRef<HTMLInputElement>(null);
   const cardRef = useRef<HTMLInputElement>(null);
@@ -186,7 +195,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
         admission_year: data.admission_year,
         graduation_year: data.graduation_year,
         phone: data.phone,
-        email: data.email, // 카톡 email
+        email: data.email,
         company: p?.company, job_title: p?.job_title,
         region: p?.region, address: p?.address,
         bio: p?.bio, photo_url: p?.photo_url,
@@ -194,7 +203,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
         organization: (data as any).organization || '한국농어촌공사',
         office_phone: p?.office_phone,
         fax: p?.fax,
-        profile_email: p?.email, // 명함 email
+        profile_email: p?.email,
       };
       setAlumni(detail);
       setForm({
@@ -220,15 +229,94 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
     showToast(label + ' 복사됨');
   };
 
-  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]; if (!file) return;
+  // 프로필 사진 선택 → 편집 모달
+  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setPhotoCropSrc(reader.result as string);
+      setPhotoCropFile(file);
+      setPhotoCrop(undefined);
+      setPhotoCompletedCrop(undefined);
+      setPhotoRotation(0);
+      setShowPhotoCropModal(true);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const onPhotoImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    const { width, height } = e.currentTarget;
+    const c = centerCrop(
+      makeAspectCrop({ unit: '%', width: 80 }, 1, width, height),
+      width, height
+    );
+    setPhotoCrop(c);
+  };
+
+  const handlePhotoCropComplete = useCallback(async () => {
+    if (!photoCropFile) return;
+    let fileToUpload = photoCropFile;
+
+    if (photoCompletedCrop && photoImgRef.current && photoCompletedCrop.width > 0 && photoCompletedCrop.height > 0) {
+      const canvas = document.createElement('canvas');
+      const img = photoImgRef.current;
+      const scaleX = img.naturalWidth / img.width;
+      const scaleY = img.naturalHeight / img.height;
+      canvas.width = photoCompletedCrop.width * scaleX;
+      canvas.height = photoCompletedCrop.height * scaleY;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        if (photoRotation !== 0) {
+          const rad = (photoRotation * Math.PI) / 180;
+          const cos = Math.abs(Math.cos(rad));
+          const sin = Math.abs(Math.sin(rad));
+          canvas.width = canvas.height * sin + canvas.width * cos;
+          canvas.height = canvas.height * cos + canvas.width * sin;
+          ctx.translate(canvas.width / 2, canvas.height / 2);
+          ctx.rotate(rad);
+          ctx.translate(-canvas.width / 2, -canvas.height / 2);
+        }
+        ctx.drawImage(
+          img,
+          photoCompletedCrop.x * scaleX, photoCompletedCrop.y * scaleY,
+          photoCompletedCrop.width * scaleX, photoCompletedCrop.height * scaleY,
+          0, 0, photoCompletedCrop.width * scaleX, photoCompletedCrop.height * scaleY
+        );
+        const blob = await new Promise<Blob>(resolve => canvas.toBlob(b => resolve(b!), 'image/jpeg', 0.95));
+        fileToUpload = new File([blob], photoCropFile.name, { type: 'image/jpeg' });
+      }
+    } else if (photoRotation !== 0) {
+      const img = photoImgRef.current;
+      if (img) {
+        const canvas = document.createElement('canvas');
+        const rad = (photoRotation * Math.PI) / 180;
+        const cos = Math.abs(Math.cos(rad));
+        const sin = Math.abs(Math.sin(rad));
+        canvas.width = img.naturalHeight * sin + img.naturalWidth * cos;
+        canvas.height = img.naturalHeight * cos + img.naturalWidth * sin;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.translate(canvas.width / 2, canvas.height / 2);
+          ctx.rotate(rad);
+          ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2);
+          const blob = await new Promise<Blob>(resolve => canvas.toBlob(b => resolve(b!), 'image/jpeg', 0.95));
+          fileToUpload = new File([blob], photoCropFile.name, { type: 'image/jpeg' });
+        }
+      }
+    }
+
+    setShowPhotoCropModal(false);
     setUploadingPhoto(true);
-    const url = await uploadImage(file, 'profiles');
+    showToast('사진 업로드 중...');
+    const url = await uploadImage(fileToUpload, 'profiles');
     if (url) { setForm(f => ({ ...f, photo_url: url })); showToast('사진 업로드 완료'); }
     else showToast('업로드 실패');
     setUploadingPhoto(false);
-  };
+  }, [photoCompletedCrop, photoCropFile, photoRotation]);
 
+  // 명함 파일 선택 → 편집 모달
   const handleCardFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = '';
@@ -331,7 +419,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
         phone:         info.phone        ? info.phone        : prev.phone,
         office_phone:  info.office_phone ? info.office_phone : prev.office_phone,
         fax:           info.fax          ? info.fax          : prev.fax,
-        profile_email: info.email        ? info.email        : prev.profile_email, // 명함 email → profile_email
+        profile_email: info.email        ? info.email        : prev.profile_email,
         address:       info.address      ? info.address      : prev.address,
       }));
 
@@ -344,11 +432,8 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
       if (info.email)        changed.push('이메일');
       if (info.address)      changed.push('주소');
 
-      // phone만 alumni_master에 저장 (email은 카톡 email 보호를 위해 저장 안 함)
       if (info.phone) {
-        await supabase.from('alumni_master').update({
-          phone: info.phone,
-        }).eq('id', id);
+        await supabase.from('alumni_master').update({ phone: info.phone }).eq('id', id);
       }
 
       const { data: existingProfile } = await supabase
@@ -360,7 +445,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
         ...(info.address      ? { address: info.address }           : {}),
         ...(info.office_phone ? { office_phone: info.office_phone } : {}),
         ...(info.fax          ? { fax: info.fax }                   : {}),
-        ...(info.email        ? { email: info.email }               : {}), // 명함 email → alumni_profiles.email
+        ...(info.email        ? { email: info.email }               : {}),
         card_image_url: url,
       };
 
@@ -397,7 +482,6 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
     await supabase.from('alumni_master').update({
       phone: form.phone || null,
       organization: form.organization,
-      // email은 alumni_master에 저장 안 함 (카톡 email 보호)
     }).eq('id', id);
 
     const { data: existingProfile } = await supabase
@@ -411,7 +495,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
         card_image_url: form.card_image_url || null,
         office_phone: form.office_phone || null,
         fax: form.fax || null,
-        email: form.profile_email || null, // 명함 email
+        email: form.profile_email || null,
       }).eq('id', existingProfile.id);
     } else {
       await supabase.from('alumni_profiles').insert({
@@ -438,18 +522,24 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
     setTimeout(() => setContactSaved(false), 2500);
   };
 
+  // 지도 앱 열기 - 수정된 URL
   const openMap = (type: 'kakao' | 'naver' | 'kakaonavi' | 'tmap') => {
     if (!alumni?.address) return;
     const addr = encodeURIComponent(alumni.address);
-    const urls: Record<string, [string, string]> = {
-      kakao:     [`kakaomap://search?q=${addr}`, `https://map.kakao.com/link/search/${addr}`],
-      naver:     [`nmap://search?query=${addr}&appname=com.cnu.alumni`, `https://map.naver.com/v5/search/${addr}`],
-      kakaonavi: [`kakaonavi://navigate?dest_name=${addr}`, `https://map.kakao.com/link/search/${addr}`],
-      tmap:      [`tmap://search?name=${addr}`, `https://tmap.life/${addr}`],
-    };
-    const [appUrl, webUrl] = urls[type];
-    window.location.href = appUrl;
-    setTimeout(() => { window.open(webUrl, '_blank'); }, 1500);
+
+    if (type === 'kakao') {
+      window.location.href = `kakaomap://search?q=${addr}`;
+      setTimeout(() => window.open(`https://map.kakao.com/link/search/${addr}`, '_blank'), 1500);
+    } else if (type === 'naver') {
+      window.location.href = `nmap://search?query=${addr}&appname=com.cnu.alumni`;
+      setTimeout(() => window.open(`https://map.naver.com/v5/search/${addr}`, '_blank'), 1500);
+    } else if (type === 'kakaonavi') {
+      window.location.href = `kakaonavi://navigate?dest_name=${addr}&dest_x=0&dest_y=0`;
+      setTimeout(() => window.open(`https://map.kakao.com/link/search/${addr}`, '_blank'), 1500);
+    } else if (type === 'tmap') {
+      window.location.href = `tmap://search?name=${addr}`;
+      setTimeout(() => window.open(`https://www.tmap.co.kr/search?query=${addr}`, '_blank'), 1500);
+    }
   };
 
   if (loading) return (
@@ -468,15 +558,13 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
 
   const bar = <div style={{ width:4, height:16, background:'#1B3F7B', borderRadius:2 }} />;
   const org = alumni.organization || '한국농어촌공사';
-
-  // 표시용 이메일: 명함 email 우선, 없으면 카톡 email
   const displayEmail = alumni.profile_email || alumni.email;
 
   const fieldRows = [
     { label:'부서', key:'company', placeholder:'충남지역본부 기반사업부' },
     { label:'직무/직책', key:'job_title', placeholder:'과장' },
     { label:'지역', key:'region', placeholder:'충남' },
-    { label:'주소 (지도 표시용)', key:'address', placeholder:'대전광역시 서구 대덕대로 290번길 27' },
+    { label:'주소 (지도 표시용)', key:'address', placeholder:'충청남도 홍성군 홍북읍 충남대로 60' },
     { label:'휴대폰', key:'phone', placeholder:'010-1234-5678' },
     { label:'사무실 전화', key:'office_phone', placeholder:'041-000-0000' },
     { label:'FAX', key:'fax', placeholder:'041-000-0001' },
@@ -528,7 +616,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
               </button>
             )}
           </div>
-          <input ref={photoRef} type="file" accept="image/*" style={{ display:'none' }} onChange={handlePhotoUpload} />
+          <input ref={photoRef} type="file" accept="image/*" style={{ display:'none' }} onChange={handlePhotoSelect} />
           <h2 style={{ color:'#fff', fontSize:22, fontWeight:800, marginBottom:4 }}>{alumni.name}</h2>
           {alumni.job_title && <p style={{ color:'rgba(255,255,255,0.75)', fontSize:13, marginBottom:2 }}>{alumni.job_title}</p>}
           {alumni.company && <p style={{ color:'rgba(255,255,255,0.55)', fontSize:12 }}>{alumni.company}</p>}
@@ -826,13 +914,41 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
         </div>
       )}
 
-      {/* ── 이미지 편집 모달 ── */}
+      {/* ── 프로필 사진 편집 모달 ── */}
+      {showPhotoCropModal && photoCropSrc && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.92)', zIndex:200, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:16, fontFamily:'inherit' }}>
+          <p style={{ color:'#fff', fontSize:15, fontWeight:700, marginBottom:4 }}>프로필 사진 편집</p>
+          <p style={{ color:'rgba(255,255,255,0.5)', fontSize:11, marginBottom:12 }}>드래그로 자르기 영역 선택 · 회전 버튼으로 방향 조정</p>
+          <div style={{ maxWidth:380, width:'100%', maxHeight:'55vh', overflow:'auto', marginBottom:16, borderRadius:12 }}>
+            <ReactCrop crop={photoCrop} onChange={(c: Crop) => setPhotoCrop(c)} onComplete={(c: Crop) => setPhotoCompletedCrop(c)}>
+              <img ref={photoImgRef} src={photoCropSrc} onLoad={onPhotoImageLoad}
+                style={{ maxWidth:'100%', transform:`rotate(${photoRotation}deg)`, transition:'transform 0.25s', display:'block' }} />
+            </ReactCrop>
+          </div>
+          <div style={{ display:'flex', gap:8, marginBottom:12, flexWrap:'wrap', justifyContent:'center' }}>
+            <button onClick={() => setPhotoRotation(r => (r + 90) % 360)}
+              style={{ background:'rgba(255,255,255,0.15)', border:'1px solid rgba(255,255,255,0.3)', borderRadius:10, padding:'9px 16px', color:'#fff', fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>
+              🔄 90° 회전
+            </button>
+            <button onClick={handlePhotoCropComplete} disabled={uploadingPhoto}
+              style={{ background:'#1B3F7B', border:'none', borderRadius:10, padding:'9px 20px', color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:'inherit', opacity: uploadingPhoto ? 0.7 : 1 }}>
+              {uploadingPhoto ? '⏳ 업로드중...' : '✅ 완료'}
+            </button>
+            <button onClick={() => { setShowPhotoCropModal(false); setPhotoCropSrc(''); }}
+              style={{ background:'rgba(255,255,255,0.1)', border:'1px solid rgba(255,255,255,0.2)', borderRadius:10, padding:'9px 16px', color:'#fff', fontSize:13, cursor:'pointer', fontFamily:'inherit' }}>
+              취소
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── 명함 편집 모달 ── */}
       {showCropModal && cropSrc && (
         <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.92)', zIndex:200, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:16, fontFamily:'inherit' }}>
           <p style={{ color:'#fff', fontSize:15, fontWeight:700, marginBottom:4 }}>명함 편집</p>
           <p style={{ color:'rgba(255,255,255,0.5)', fontSize:11, marginBottom:12 }}>드래그로 자르기 영역 선택 · 회전 버튼으로 방향 조정</p>
           <div style={{ maxWidth:380, width:'100%', maxHeight:'55vh', overflow:'auto', marginBottom:16, borderRadius:12 }}>
-          <ReactCrop crop={crop} onChange={(c: Crop) => setCrop(c)} onComplete={(c: Crop) => setCompletedCrop(c)}>
+            <ReactCrop crop={crop} onChange={(c: Crop) => setCrop(c)} onComplete={(c: Crop) => setCompletedCrop(c)}>
               <img ref={imgRef} src={cropSrc} onLoad={onImageLoad}
                 style={{ maxWidth:'100%', transform:`rotate(${rotation}deg)`, transition:'transform 0.25s', display:'block' }} />
             </ReactCrop>

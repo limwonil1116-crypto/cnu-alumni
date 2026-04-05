@@ -158,7 +158,6 @@ export default function DirectoryPage() {
   const [activeDept, setActiveDept] = useState('전체');
   const [myEmail, setMyEmail] = useState('');
 
-  // 외부기관 PIN
   const [extUnlocked, setExtUnlocked] = useState(false);
   const [showPinModal, setShowPinModal] = useState(false);
   const [pinInput, setPinInput] = useState('');
@@ -374,18 +373,13 @@ export default function DirectoryPage() {
         <p style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8 }}>기관</p>
         <div style={{ display: 'flex', gap: 8, overflowX: 'auto', scrollbarWidth: 'none', marginBottom: 12 } as React.CSSProperties}>
           <button onClick={() => { setActiveGroup('전체'); setActiveOrg('전체'); setActiveDept('전체'); }}
-            style={plainBtn(activeGroup === '전체')}>
-            전체
-          </button>
+            style={plainBtn(activeGroup === '전체')}>전체</button>
           <OrgButton org="한국농어촌공사" active={activeGroup === '한국농어촌공사'}
             onClick={() => { setActiveGroup('한국농어촌공사'); setActiveOrg('전체'); setActiveDept('전체'); }} />
           <button
             onClick={() => {
-              if (extUnlocked) {
-                setActiveGroup('외부기관'); setActiveOrg('전체'); setActiveDept('전체');
-              } else {
-                setShowPinModal(true); setPinInput(''); setPinError('');
-              }
+              if (extUnlocked) { setActiveGroup('외부기관'); setActiveOrg('전체'); setActiveDept('전체'); }
+              else { setShowPinModal(true); setPinInput(''); setPinError(''); }
             }}
             style={plainBtn(activeGroup === '외부기관')}>
             {extUnlocked ? '🏛 외부기관' : '🔒 외부기관'}
@@ -396,10 +390,7 @@ export default function DirectoryPage() {
           <>
             <p style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8 }}>세부 기관</p>
             <div style={{ display: 'flex', gap: 8, overflowX: 'auto', scrollbarWidth: 'none', marginBottom: 12 } as React.CSSProperties}>
-              <button onClick={() => { setActiveOrg('전체'); setActiveDept('전체'); }}
-                style={plainBtn(activeOrg === '전체')}>
-                전체
-              </button>
+              <button onClick={() => { setActiveOrg('전체'); setActiveDept('전체'); }} style={plainBtn(activeOrg === '전체')}>전체</button>
               {extOrgList.filter(o => o !== '전체').map(org => (
                 <OrgButton key={org} org={org} active={activeOrg === org}
                   onClick={() => { setActiveOrg(org); setActiveDept('전체'); }} />
@@ -411,18 +402,14 @@ export default function DirectoryPage() {
         <p style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8 }}>학과</p>
         <div style={{ display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none', marginBottom: 8 } as React.CSSProperties}>
           {deptList.map(dept => (
-            <button key={dept} onClick={() => setActiveDept(dept)} style={deptBtn(activeDept === dept)}>
-              {dept}
-            </button>
+            <button key={dept} onClick={() => setActiveDept(dept)} style={deptBtn(activeDept === dept)}>{dept}</button>
           ))}
         </div>
         <div style={{ position: 'relative' }}>
           <select value={activeDept} onChange={e => setActiveDept(e.target.value)}
             style={{ width: '100%', appearance: 'none', WebkitAppearance: 'none', background: '#f8fafc', border: '1.5px solid #e2e8f0', borderRadius: 10, padding: '8px 36px 8px 14px', fontSize: 13, color: activeDept === '전체' ? '#94a3b8' : '#1B3F7B', fontWeight: activeDept === '전체' ? 400 : 700, cursor: 'pointer', fontFamily: 'inherit', outline: 'none' } as React.CSSProperties}>
             {deptList.map(dept => (
-              <option key={dept} value={dept}>
-                {dept === '전체' ? '🎓 학과 전체 보기' : `📚 ${dept}`}
-              </option>
+              <option key={dept} value={dept}>{dept === '전체' ? '🎓 학과 전체 보기' : `📚 ${dept}`}</option>
             ))}
           </select>
           <div style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
@@ -431,7 +418,7 @@ export default function DirectoryPage() {
         </div>
       </div>
 
-      {/* ── 외부기관 PIN 모달 ── */}
+      {/* ── PIN 모달 ── */}
       {showPinModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 100, display: 'flex', alignItems: 'flex-end' }}
           onClick={() => setShowPinModal(false)}>
@@ -450,9 +437,7 @@ export default function DirectoryPage() {
               ))}
             </div>
             {pinError && (
-              <div style={{ background: '#fef2f2', color: '#dc2626', padding: '8px 14px', borderRadius: 10, fontSize: 12, marginBottom: 12, textAlign: 'center' }}>
-                {pinError}
-              </div>
+              <div style={{ background: '#fef2f2', color: '#dc2626', padding: '8px 14px', borderRadius: 10, fontSize: 12, marginBottom: 12, textAlign: 'center' }}>{pinError}</div>
             )}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, maxWidth: 280, margin: '0 auto 16px', width: '100%' }}>
               {['1','2','3','4','5','6','7','8','9','','0','⌫'].map((k, idx) => (
@@ -514,8 +499,7 @@ export default function DirectoryPage() {
                   )}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
                     {org === '한국농어촌공사' ? (
-                      <img src="/krc-logo.jpg" alt="KRC"
-                        style={{ height: 16, width: 'auto', objectFit: 'contain', maxWidth: 80 }} />
+                      <img src="/krc-logo.jpg" alt="KRC" style={{ height: 16, width: 'auto', objectFit: 'contain', maxWidth: 80 }} />
                     ) : (
                       <>
                         {ORG_LOGO[org] && (
@@ -523,12 +507,8 @@ export default function DirectoryPage() {
                             style={{ height: 14, width: 'auto', objectFit: 'contain' }}
                             onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                         )}
-                        {!ORG_LOGO[org] && getOrgEmoji(org) && (
-                          <span style={{ fontSize: 11 }}>{getOrgEmoji(org)}</span>
-                        )}
-                        <span style={{ fontSize: 11, color: orgInfo?.color || '#64748b', fontWeight: 600 }}>
-                          {org}
-                        </span>
+                        {!ORG_LOGO[org] && getOrgEmoji(org) && <span style={{ fontSize: 11 }}>{getOrgEmoji(org)}</span>}
+                        <span style={{ fontSize: 11, color: orgInfo?.color || '#64748b', fontWeight: 600 }}>{org}</span>
                       </>
                     )}
                   </div>
@@ -564,10 +544,11 @@ export default function DirectoryPage() {
           <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>
           <span style={{ fontSize: 10, fontWeight: 700 }}>홈</span>
         </Link>
-        <Link href="/mypage" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, padding: '10px 0', color: '#64748b', textDecoration: 'none' }}>
+        {/* 내 정보 → 본인 프로필로 이동 */}
+        <button onClick={goToMyProfile} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, padding: '10px 0', color: '#64748b', background: 'none', border: 'none', cursor: 'pointer' }}>
           <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" /><path d="M20 21a8 8 0 1 0-16 0" /></svg>
           <span style={{ fontSize: 10, fontWeight: 500 }}>내 정보</span>
-        </Link>
+        </button>
       </div>
 
       <style>{`
