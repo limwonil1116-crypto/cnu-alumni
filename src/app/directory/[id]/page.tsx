@@ -727,10 +727,10 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
               <button onClick={() => openMap('kakaonavi')} style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, background:'#FF6B35', border:'none', borderRadius:12, padding:'12px', fontSize:13, fontWeight:700, color:'#fff', cursor:'pointer', fontFamily:'inherit' }}>🚗 카카오내비</button>
               <button onClick={() => openMap('tmap')} style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, background:'#1B6AE4', border:'none', borderRadius:12, padding:'12px', fontSize:13, fontWeight:700, color:'#fff', cursor:'pointer', fontFamily:'inherit' }}>📡 T맵</button>
             </div>
-            {/* 처음부터 지도 표시 (완벽하게 작동하는 구글맵) */}
+            {/* 처음부터 지도 표시 (시스템 버그를 수정한 진짜 구글맵) */}
             <div style={{ borderRadius:12, overflow:'hidden', border:'1px solid #e2e8f0' }}>
               <iframe
-                src={`https://maps.google.com/maps?q=${alumni.address ? encodeURIComponent(alumni.address) : ''}&hl=ko&z=16&output=embed`}
+                src={"https://maps.google.com/maps?q=" + encodeURIComponent(alumni.address) + "&hl=ko&z=16&output=embed"}
                 width="100%"
                 height="220"
                 style={{ border:'none', display:'block' }}
