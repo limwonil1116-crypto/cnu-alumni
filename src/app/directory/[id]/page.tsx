@@ -37,26 +37,26 @@ const ORG_LIST = [
 ];
 
 const ORG_LOGO: Record<string, string> = {
-  '한국농어촌공사':  '/logos/krc.png',
-  '농림축산식품부':  '/logos/mafra.png',
-  '충남도청':        '/logos/chungnam.png',
-  '세종특별자치시':  '/logos/sejong.png',
-  '대전광역시':      '/logos/daejeon.png',
-  '천안시':          '/logos/cheonan.png',
-  '공주시':          '/logos/gongju.png',
-  '보령시':          '/logos/boryeong.png',
-  '아산시':          '/logos/asan.png',
-  '서산시':          '/logos/seosan.png',
-  '논산시':          '/logos/nonsan.png',
-  '계룡시':          '/logos/gyeryong.png',
-  '당진시':          '/logos/dangjin.png',
-  '금산군':          '/logos/geumsan.png',
-  '부여군':          '/logos/buyeo.png',
-  '서천군':          '/logos/seocheon.png',
-  '청양군':          '/logos/cheongyang.png',
-  '홍성군':          '/logos/hongseong.png',
-  '예산군':          '/logos/yesan.png',
-  '태안군':          '/logos/taean.png',
+  '한국농어촌공사': '/logos/krc.png',
+  '농림축산식품부': '/logos/mafra.png',
+  '충남도청': '/logos/chungnam.png',
+  '세종특별자치시': '/logos/sejong.png',
+  '대전광역시': '/logos/daejeon.png',
+  '천안시': '/logos/cheonan.png',
+  '공주시': '/logos/gongju.png',
+  '보령시': '/logos/boryeong.png',
+  '아산시': '/logos/asan.png',
+  '서산시': '/logos/seosan.png',
+  '논산시': '/logos/nonsan.png',
+  '계룡시': '/logos/gyeryong.png',
+  '당진시': '/logos/dangjin.png',
+  '금산군': '/ర్ణ/geumsan.png',
+  '부여군': '/logos/buyeo.png',
+  '서천군': '/logos/seocheon.png',
+  '청양군': '/logos/cheongyang.png',
+  '홍성군': '/logos/hongseong.png',
+  '예산군': '/logos/yesan.png',
+  '태안군': '/logos/taean.png',
 };
 
 const ORG_EMOJI: Record<string, string> = {
@@ -138,48 +138,60 @@ async function extractCardInfo(file: File): Promise<{
   return data;
 }
 
-  // ── 네이버 지도 전용 컴포넌트 (주소를 좌표로 변환하여 마커 표시) ──
+// ── 네이버 지도 전용 컴포넌트 ──
 function NaverMap({ address }: { address: string }) {
   const mapRef = useRef<HTMLDivElement>(null);
+  const [status, setStatus] = useState('지도를 불러오는 중... ⏳');
 
   useEffect(() => {
     const clientId = process.env.NEXT_PUBLIC_NAVER_CLIENT_ID;
-    if (!clientId || !address) return;
+    if (!clientId) {
+      setStatus('🚨 API 키를 찾을 수 없습니다. (Vercel 환경변수 확인)');
+      return;
+    }
+    if (!address) {
+      setStatus('주소 정보가 없습니다.');
+      return;
+    }
 
     const scriptId = 'naver-map-script';
     let script = document.getElementById(scriptId) as HTMLScriptElement;
 
     const initMap = () => {
       const naver = (window as any).naver;
-      if (!naver || !naver.maps || !naver.maps.Service) return;
+      if (!naver || !naver.maps || !naver.maps.Service) {
+        setStatus('🚨 네이버 지도 로드 실패 (도메인 주소 등록 확인)');
+        return;
+      }
 
-      // 1. 주소를 좌표로 변환 (Geocoding API)
+      // 1. 주소를 좌표로 변환
       naver.maps.Service.geocode({ query: address }, (status: any, response: any) => {
         if (status !== naver.maps.Service.Status.OK || !response.v2.addresses.length) {
-          if (mapRef.current) mapRef.current.innerHTML = '<div style="padding:30px; text-align:center; color:#94a3b8; font-size:13px;">지도에서 주소를 찾을 수 없습니다.</div>';
+          setStatus('지도에서 주소를 찾을 수 없습니다.');
           return;
         }
 
         const item = response.v2.addresses[0];
         const point = new naver.maps.LatLng(Number(item.y), Number(item.x));
 
-        // 2. 지도 화면에 그리고 마커 꽂기
+        // 2. 화면에 지도 및 마커 표시
         if (mapRef.current) {
+          mapRef.current.innerHTML = ''; // 에러 메시지 지우기
           const map = new naver.maps.Map(mapRef.current, {
             center: point,
-            zoom: 16, // 확대 비율 (숫자가 클수록 가까워짐)
+            zoom: 16,
           });
           new naver.maps.Marker({ position: point, map: map });
         }
       });
     };
 
-    // 네이버 지도 스크립트 불러오기 (geocoder 모듈 포함)
     if (!script) {
       script = document.createElement('script');
       script.id = scriptId;
       script.src = `https://openapi.map.naver.com/openapi/v3/maps.js?ncpClientId=${clientId}&submodules=geocoder`;
       script.onload = initMap;
+      script.onerror = () => setStatus('🚨 네이버 지도 스크립트 로드 실패');
       document.head.appendChild(script);
     } else if ((window as any).naver && (window as any).naver.maps) {
       initMap();
@@ -188,7 +200,14 @@ function NaverMap({ address }: { address: string }) {
     }
   }, [address]);
 
-  return <div ref={mapRef} style={{ width: '100%', height: '220px', backgroundColor: '#f1f5f9' }} />;
+  return (
+    <div 
+      ref={mapRef} 
+      style={{ width: '100%', height: '220px', backgroundColor: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', color: '#64748b', fontWeight: 600 }}
+    >
+      {status}
+    </div>
+  );
 }
 
 export default function ProfileDetailPage({ params }: { params: Promise<{ id: string }> }) {
