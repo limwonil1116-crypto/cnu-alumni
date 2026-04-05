@@ -76,6 +76,92 @@ const avatarColor = (name: string) => {
 
 const F = { fontFamily:"'Apple SD Gothic Neo','Noto Sans KR',sans-serif" };
 
+// 카카오 roughmap 위성지도 컴포넌트
+function KakaoRoughMap({ address }: { address: string }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    if (!address) return;
+
+    const KAKAO_JS_KEY = 'c7c02f4af090a723b080114d9bee566e';
+
+    const init = () => {
+      const kakao = (window as any).kakao;
+      if (!kakao?.maps) return;
+
+      kakao.maps.load(() => {
+        if (!containerRef.current) return;
+        containerRef.current.innerHTML = '';
+
+        const geocoder = new kakao.maps.services.Geocoder();
+        geocoder.addressSearch(address, (result: any[], status: string) => {
+          if (status !== kakao.maps.services.Status.OK || !result.length) return;
+
+          const coords = new kakao.maps.LatLng(
+            parseFloat(result[0].y),
+            parseFloat(result[0].x)
+          );
+
+          const map = new kakao.maps.Map(containerRef.current, {
+            center: coords,
+            level: 3,
+            mapTypeId: kakao.maps.MapTypeId.HYBRID, // 위성+레이블
+          });
+
+          new kakao.maps.Marker({ position: coords, map });
+          setLoaded(true);
+        });
+      });
+    };
+
+    // 이미 로드된 경우
+    if ((window as any).kakao?.maps) {
+      init();
+      return;
+    }
+
+    // 스크립트 로드
+    const scriptId = 'kakao-map-sdk';
+    if (!document.getElementById(scriptId)) {
+      const script = document.createElement('script');
+      script.id = scriptId;
+      script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_JS_KEY}&libraries=services&autoload=false`;
+      script.onload = init;
+      document.head.appendChild(script);
+    } else {
+      // 스크립트는 있지만 아직 로딩 중일 수 있으므로 잠시 대기
+      const timer = setInterval(() => {
+        if ((window as any).kakao?.maps) {
+          clearInterval(timer);
+          init();
+        }
+      }, 100);
+      return () => clearInterval(timer);
+    }
+  }, [address]);
+
+  return (
+    <div style={{ position: 'relative', width: '100%', height: 240 }}>
+      {!loaded && (
+        <div style={{
+          position: 'absolute', inset: 0,
+          background: '#f1f5f9',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 13, color: '#94a3b8', fontWeight: 600,
+          borderRadius: 12,
+        }}>
+          🗺 지도 불러오는 중...
+        </div>
+      )}
+      <div
+        ref={containerRef}
+        style={{ width: '100%', height: '100%', borderRadius: 12 }}
+      />
+    </div>
+  );
+}
+
 function saveContact(alumni: AlumniDetail) {
   const displayEmail = alumni.profile_email || alumni.email;
   const vcard = [
@@ -698,7 +784,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
           )}
         </div>
 
-        {/* ── 위치 카드 - 카카오맵 iframe (API 키 불필요) ── */}
+        {/* ── 위치 카드 ── */}
         {!editMode && alumni.address && (
           <div style={{ background:'#fff', borderRadius:16, padding:'16px', marginBottom:10, boxShadow:'0 1px 4px rgba(13,45,110,0.07)', border:'1px solid #e2e8f0' }}>
             <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10 }}>
@@ -711,17 +797,9 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
               <button onClick={() => openMap('kakaonavi')} style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, background:'#FF6B35', border:'none', borderRadius:12, padding:'12px', fontSize:13, fontWeight:700, color:'#fff', cursor:'pointer', fontFamily:'inherit' }}>🚗 카카오내비</button>
               <button onClick={() => openMap('tmap')} style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, background:'#1B6AE4', border:'none', borderRadius:12, padding:'12px', fontSize:13, fontWeight:700, color:'#fff', cursor:'pointer', fontFamily:'inherit' }}>📡 T맵</button>
             </div>
-            {/* 카카오맵 iframe - API 키 없이 주소 검색으로 표시 */}
+            {/* 카카오맵 위성지도 - JavaScript SDK */}
             <div style={{ borderRadius:12, overflow:'hidden', border:'1px solid #e2e8f0' }}>
-            <iframe
-            src={`https://maps.google.com/maps?q=${encodeURIComponent(alumni.address)}&output=embed&hl=ko`}
-            width="100%"
-            height="220"
-            style={{ border:'none', display:'block' }}
-            title="지도"
-            loading="lazy"
-            allowFullScreen
-            />
+              <KakaoRoughMap address={alumni.address} />
             </div>
           </div>
         )}
