@@ -50,7 +50,7 @@ const ORG_LOGO: Record<string, string> = {
   '논산시': '/logos/nonsan.png',
   '계룡시': '/logos/gyeryong.png',
   '당진시': '/logos/dangjin.png',
-  '금산군': '/ర్ణ/geumsan.png',
+  '금산군': '/logos/geumsan.png',
   '부여군': '/logos/buyeo.png',
   '서천군': '/logos/seocheon.png',
   '청양군': '/logos/cheongyang.png',
@@ -138,7 +138,7 @@ async function extractCardInfo(file: File): Promise<{
   return data;
 }
 
-// ── 네이버 지도 전용 컴포넌트 ──
+// ── 네이버 지도 전용 컴포넌트 (타이밍 문제 완벽 해결 + 재시도 기능) ──
 function NaverMap({ address }: { address: string }) {
   const mapRef = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState('지도를 불러오는 중... ⏳');
@@ -157,10 +157,18 @@ function NaverMap({ address }: { address: string }) {
     const scriptId = 'naver-map-script';
     let script = document.getElementById(scriptId) as HTMLScriptElement;
 
-    const initMap = () => {
+    // 네이버 지도가 완벽히 로드될 때까지 기다렸다가 실행하는 함수
+    const initMap = (retries = 0) => {
       const naver = (window as any).naver;
+
+      // 네이버 지도의 세부 모듈(Geocoding)이 늦게 도착할 수 있으므로 최대 10번(2초) 재시도
       if (!naver || !naver.maps || !naver.maps.Service) {
-        setStatus('🚨 네이버 지도 로드 실패 (도메인 주소 등록 확인)');
+        if (retries < 10) {
+          setTimeout(() => initMap(retries + 1), 200); // 0.2초 뒤에 다시 확인
+          return;
+        }
+        // 10번 다 기다렸는데도 안 오면 진짜 에러
+        setStatus(`🚨 지도 모듈 로드 실패 (새로고침 해주세요)`);
         return;
       }
 
@@ -190,20 +198,18 @@ function NaverMap({ address }: { address: string }) {
       script = document.createElement('script');
       script.id = scriptId;
       script.src = `https://openapi.map.naver.com/openapi/v3/maps.js?ncpClientId=${clientId}&submodules=geocoder`;
-      script.onload = initMap;
-      script.onerror = () => setStatus('🚨 네이버 지도 스크립트 로드 실패');
+      script.onload = () => initMap(0);
+      script.onerror = () => setStatus('🚨 네이버 지도 차단됨 (도메인 또는 키 오류)');
       document.head.appendChild(script);
-    } else if ((window as any).naver && (window as any).naver.maps) {
-      initMap();
     } else {
-      script.addEventListener('load', initMap);
+      initMap(0);
     }
   }, [address]);
 
   return (
     <div 
       ref={mapRef} 
-      style={{ width: '100%', height: '220px', backgroundColor: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', color: '#64748b', fontWeight: 600 }}
+      style={{ width: '100%', height: '220px', backgroundColor: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', color: '#64748b', fontWeight: 600, padding: '20px', textAlign: 'center', lineHeight: '1.5' }}
     >
       {status}
     </div>
