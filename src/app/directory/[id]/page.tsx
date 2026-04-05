@@ -86,20 +86,18 @@ function AddressMap({ address }: { address: string }) {
 
     const geocode = async () => {
       try {
-        const res = await fetch(`/api/naver-geocode?query=${encodeURIComponent(address)}`);
-        const data = await res.json();
+    const res = await fetch(`/api/naver-geocode?query=${encodeURIComponent(address)}`);
+    const data = await res.json();
+        console.log('지오코딩 응답:', JSON.stringify(data));
 
-        if (data?.addresses?.length) {
-          // 네이버 지오코딩 응답
-          setCoords({ lat: parseFloat(data.addresses[0].y), lng: parseFloat(data.addresses[0].x) });
-          setStatus('ok');
-        } else if (data?.documents?.length) {
-          // 카카오 지오코딩 응답
-          setCoords({ lat: parseFloat(data.documents[0].y), lng: parseFloat(data.documents[0].x) });
-          setStatus('ok');
-        } else {
-          setStatus('error');
-        }
+    if (data?.documents?.length) {
+      const doc = data.documents[0];
+      setCoords({ lat: parseFloat(doc.y), lng: parseFloat(doc.x) });
+      setStatus('ok');
+    } else {
+      console.warn('좌표 없음:', data);
+      setStatus('error');
+    }
       } catch {
         setStatus('error');
       }
