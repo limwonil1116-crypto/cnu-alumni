@@ -713,13 +713,15 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
             </div>
             {/* 카카오맵 iframe - API 키 없이 주소 검색으로 표시 */}
             <div style={{ borderRadius:12, overflow:'hidden', border:'1px solid #e2e8f0' }}>
-              <iframe
-                src={`https://map.kakao.com/?q=${encodeURIComponent(alumni.address)}&map_type=SKYVIEW`}
-                width="100%"
-                height="220"
-                style={{ border:'none', display:'block' }}
-                title="카카오맵"
-              />
+            <iframe
+            src={`https://maps.google.com/maps?q=${encodeURIComponent(alumni.address)}&output=embed&hl=ko`}
+            width="100%"
+            height="220"
+            style={{ border:'none', display:'block' }}
+            title="지도"
+            loading="lazy"
+            allowFullScreen
+            />
             </div>
           </div>
         )}
