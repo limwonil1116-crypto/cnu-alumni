@@ -138,6 +138,59 @@ async function extractCardInfo(file: File): Promise<{
   return data;
 }
 
+  // ── 네이버 지도 전용 컴포넌트 (주소를 좌표로 변환하여 마커 표시) ──
+function NaverMap({ address }: { address: string }) {
+  const mapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const clientId = process.env.NEXT_PUBLIC_NAVER_CLIENT_ID;
+    if (!clientId || !address) return;
+
+    const scriptId = 'naver-map-script';
+    let script = document.getElementById(scriptId) as HTMLScriptElement;
+
+    const initMap = () => {
+      const naver = (window as any).naver;
+      if (!naver || !naver.maps || !naver.maps.Service) return;
+
+      // 1. 주소를 좌표로 변환 (Geocoding API)
+      naver.maps.Service.geocode({ query: address }, (status: any, response: any) => {
+        if (status !== naver.maps.Service.Status.OK || !response.v2.addresses.length) {
+          if (mapRef.current) mapRef.current.innerHTML = '<div style="padding:30px; text-align:center; color:#94a3b8; font-size:13px;">지도에서 주소를 찾을 수 없습니다.</div>';
+          return;
+        }
+
+        const item = response.v2.addresses[0];
+        const point = new naver.maps.LatLng(Number(item.y), Number(item.x));
+
+        // 2. 지도 화면에 그리고 마커 꽂기
+        if (mapRef.current) {
+          const map = new naver.maps.Map(mapRef.current, {
+            center: point,
+            zoom: 16, // 확대 비율 (숫자가 클수록 가까워짐)
+          });
+          new naver.maps.Marker({ position: point, map: map });
+        }
+      });
+    };
+
+    // 네이버 지도 스크립트 불러오기 (geocoder 모듈 포함)
+    if (!script) {
+      script = document.createElement('script');
+      script.id = scriptId;
+      script.src = `https://openapi.map.naver.com/openapi/v3/maps.js?ncpClientId=${clientId}&submodules=geocoder`;
+      script.onload = initMap;
+      document.head.appendChild(script);
+    } else if ((window as any).naver && (window as any).naver.maps) {
+      initMap();
+    } else {
+      script.addEventListener('load', initMap);
+    }
+  }, [address]);
+
+  return <div ref={mapRef} style={{ width: '100%', height: '220px', backgroundColor: '#f1f5f9' }} />;
+}
+
 export default function ProfileDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
@@ -727,16 +780,10 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
               <button onClick={() => openMap('kakaonavi')} style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, background:'#FF6B35', border:'none', borderRadius:12, padding:'12px', fontSize:13, fontWeight:700, color:'#fff', cursor:'pointer', fontFamily:'inherit' }}>🚗 카카오내비</button>
               <button onClick={() => openMap('tmap')} style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, background:'#1B6AE4', border:'none', borderRadius:12, padding:'12px', fontSize:13, fontWeight:700, color:'#fff', cursor:'pointer', fontFamily:'inherit' }}>📡 T맵</button>
             </div>
-            {/* 처음부터 지도 표시 (시스템 버그를 수정한 진짜 구글맵) */}
+
+            {/* 네이버 지도 표시 영역 */}
             <div style={{ borderRadius:12, overflow:'hidden', border:'1px solid #e2e8f0' }}>
-              <iframe
-                src={"https://maps.google.com/maps?q=" + encodeURIComponent(alumni.address) + "&hl=ko&z=16&output=embed"}
-                width="100%"
-                height="220"
-                style={{ border:'none', display:'block' }}
-                title="위치 지도 미리보기"
-                loading="lazy"
-              />
+              <NaverMap address={alumni.address} />
             </div>
           </div>
         )}
