@@ -37,26 +37,26 @@ const ORG_LIST = [
 ];
 
 const ORG_LOGO: Record<string, string> = {
-  '한국농어촌공사': '/logos/krc.png',
-  '농림축산식품부': '/logos/mafra.png',
-  '충남도청': '/logos/chungnam.png',
-  '세종특별자치시': '/logos/sejong.png',
-  '대전광역시': '/logos/daejeon.png',
-  '천안시': '/logos/cheonan.png',
-  '공주시': '/logos/gongju.png',
-  '보령시': '/logos/boryeong.png',
-  '아산시': '/logos/asan.png',
-  '서산시': '/logos/seosan.png',
-  '논산시': '/logos/nonsan.png',
-  '계룡시': '/logos/gyeryong.png',
-  '당진시': '/logos/dangjin.png',
-  '금산군': '/logos/geumsan.png',
-  '부여군': '/logos/buyeo.png',
-  '서천군': '/logos/seocheon.png',
-  '청양군': '/logos/cheongyang.png',
-  '홍성군': '/logos/hongseong.png',
-  '예산군': '/logos/yesan.png',
-  '태안군': '/logos/taean.png',
+  '한국농어촌공사':  '/logos/krc.png',
+  '농림축산식품부':  '/logos/mafra.png',
+  '충남도청':        '/logos/chungnam.png',
+  '세종특별자치시':  '/logos/sejong.png',
+  '대전광역시':      '/logos/daejeon.png',
+  '천안시':          '/logos/cheonan.png',
+  '공주시':          '/logos/gongju.png',
+  '보령시':          '/logos/boryeong.png',
+  '아산시':          '/logos/asan.png',
+  '서산시':          '/logos/seosan.png',
+  '논산시':          '/logos/nonsan.png',
+  '계룡시':          '/logos/gyeryong.png',
+  '당진시':          '/logos/dangjin.png',
+  '금산군':          '/logos/geumsan.png',
+  '부여군':          '/logos/buyeo.png',
+  '서천군':          '/logos/seocheon.png',
+  '청양군':          '/logos/cheongyang.png',
+  '홍성군':          '/logos/hongseong.png',
+  '예산군':          '/logos/yesan.png',
+  '태안군':          '/logos/taean.png',
 };
 
 const ORG_EMOJI: Record<string, string> = {
@@ -110,8 +110,7 @@ async function compressImage(file: File): Promise<string> {
           if (w > h) { h = Math.round((h / w) * MAX); w = MAX; }
           else { w = Math.round((w / h) * MAX); h = MAX; }
         }
-        canvas.width = w;
-        canvas.height = h;
+        canvas.width = w; canvas.height = h;
         canvas.getContext('2d')!.drawImage(img, 0, 0, w, h);
         resolve(canvas.toDataURL('image/jpeg', 0.75));
       };
@@ -136,116 +135,6 @@ async function extractCardInfo(file: File): Promise<{
   const data = await res.json();
   console.log('✨ Gemini 분석 결과:', data);
   return data;
-}
-
-// ── 네이버 지도 전용 컴포넌트 (타이밍 문제 완벽 해결 + 재시도 기능) ──
-function NaverMap({ address }: { address: string }) {
-  const mapRef = useRef<HTMLDivElement>(null);
-  const [status, setStatus] = useState('지도를 불러오는 중... ⏳');
-
-  useEffect(() => {
-    const clientId = process.env.NEXT_PUBLIC_NAVER_CLIENT_ID;
-
-    if (!clientId) {
-      setStatus('🚨 NEXT_PUBLIC_NAVER_CLIENT_ID 없음');
-      return;
-    }
-
-    if (!address) {
-      setStatus('주소 정보가 없습니다.');
-      return;
-    }
-
-    let cancelled = false;
-
-    const loadScript = () =>
-      new Promise<void>((resolve, reject) => {
-        if ((window as any).naver?.maps) {
-          resolve();
-          return;
-        }
-
-        const scriptId = 'naver-map-script';
-        const existing = document.getElementById(scriptId) as HTMLScriptElement | null;
-
-        if (existing) {
-          existing.addEventListener('load', () => resolve(), { once: true });
-          existing.addEventListener('error', () => reject(new Error('script load error')), { once: true });
-          return;
-        }
-
-        const script = document.createElement('script');
-        script.id = scriptId;
-        script.src = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpClientId=${clientId}`;
-        script.async = true;
-        script.onload = () => resolve();
-        script.onerror = () => reject(new Error('script load error'));
-        document.head.appendChild(script);
-      });
-
-    const run = async () => {
-      try {
-        await loadScript();
-
-        const res = await fetch(`/api/naver-geocode?query=${encodeURIComponent(address)}`);
-        const data = await res.json();
-
-        if (!res.ok || !data?.addresses?.length) {
-          setStatus('지도에서 주소를 찾을 수 없습니다.');
-          return;
-        }
-
-        if (cancelled) return;
-
-        const item = data.addresses[0];
-        const naver = (window as any).naver;
-        const point = new naver.maps.LatLng(Number(item.y), Number(item.x));
-
-        if (mapRef.current) {
-          mapRef.current.innerHTML = '';
-          const map = new naver.maps.Map(mapRef.current, {
-            center: point,
-            zoom: 16,
-          });
-          new naver.maps.Marker({
-            position: point,
-            map,
-          });
-        }
-      } catch (error) {
-        console.error(error);
-        setStatus('🚨 지도 로드 실패');
-      }
-    };
-
-    run();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [address]);
-
-  return (
-    <div
-      ref={mapRef}
-      style={{
-        width: '100%',
-        height: '220px',
-        backgroundColor: '#f8fafc',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontSize: '13px',
-        color: '#64748b',
-        fontWeight: 600,
-        padding: '20px',
-        textAlign: 'center',
-        lineHeight: '1.5',
-      }}
-    >
-      {status}
-    </div>
-  );
 }
 
 export default function ProfileDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -303,15 +192,13 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
         department: (data as any).department_name || '',
         admission_year: data.admission_year,
         graduation_year: data.graduation_year,
-        phone: data.phone,
-        email: data.email,
+        phone: data.phone, email: data.email,
         company: p?.company, job_title: p?.job_title,
         region: p?.region, address: p?.address,
         bio: p?.bio, photo_url: p?.photo_url,
         card_image_url: p?.card_image_url, profile_id: p?.id,
         organization: (data as any).organization || '한국농어촌공사',
-        office_phone: p?.office_phone,
-        fax: p?.fax,
+        office_phone: p?.office_phone, fax: p?.fax,
         profile_email: p?.email,
       };
       setAlumni(detail);
@@ -319,10 +206,8 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
         company: p?.company || '', job_title: p?.job_title || '',
         region: p?.region || '', address: p?.address || '',
         bio: p?.bio || '', phone: data.phone || '',
-        email: data.email || '',
-        office_phone: p?.office_phone || '',
-        fax: p?.fax || '',
-        profile_email: p?.email || '',
+        email: data.email || '', office_phone: p?.office_phone || '',
+        fax: p?.fax || '', profile_email: p?.email || '',
         photo_url: p?.photo_url || '', card_image_url: p?.card_image_url || '',
         organization: (data as any).organization || '한국농어촌공사',
       });
@@ -339,16 +224,12 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
   };
 
   const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = '';
+    const file = e.target.files?.[0]; e.target.value = '';
     if (!file) return;
     const reader = new FileReader();
     reader.onload = () => {
-      setPhotoCropSrc(reader.result as string);
-      setPhotoCropFile(file);
-      setPhotoCrop(undefined);
-      setPhotoCompletedCrop(undefined);
-      setPhotoRotation(0);
+      setPhotoCropSrc(reader.result as string); setPhotoCropFile(file);
+      setPhotoCrop(undefined); setPhotoCompletedCrop(undefined); setPhotoRotation(0);
       setShowPhotoCropModal(true);
     };
     reader.readAsDataURL(file);
@@ -356,8 +237,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
 
   const onPhotoImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
     const { width, height } = e.currentTarget;
-    const c = centerCrop(makeAspectCrop({ unit: '%', width: 80 }, 1, width, height), width, height);
-    setPhotoCrop(c);
+    setPhotoCrop(centerCrop(makeAspectCrop({ unit: '%', width: 80 }, 1, width, height), width, height));
   };
 
   const handlePhotoCropComplete = useCallback(async () => {
@@ -366,10 +246,8 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
     if (photoCompletedCrop && photoImgRef.current && photoCompletedCrop.width > 0 && photoCompletedCrop.height > 0) {
       const canvas = document.createElement('canvas');
       const img = photoImgRef.current;
-      const scaleX = img.naturalWidth / img.width;
-      const scaleY = img.naturalHeight / img.height;
-      canvas.width = photoCompletedCrop.width * scaleX;
-      canvas.height = photoCompletedCrop.height * scaleY;
+      const scaleX = img.naturalWidth / img.width; const scaleY = img.naturalHeight / img.height;
+      canvas.width = photoCompletedCrop.width * scaleX; canvas.height = photoCompletedCrop.height * scaleY;
       const ctx = canvas.getContext('2d');
       if (ctx) {
         if (photoRotation !== 0) {
@@ -377,8 +255,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
           const cos = Math.abs(Math.cos(rad)); const sin = Math.abs(Math.sin(rad));
           canvas.width = canvas.height * sin + canvas.width * cos;
           canvas.height = canvas.height * cos + canvas.width * sin;
-          ctx.translate(canvas.width / 2, canvas.height / 2);
-          ctx.rotate(rad);
+          ctx.translate(canvas.width / 2, canvas.height / 2); ctx.rotate(rad);
           ctx.translate(-canvas.width / 2, -canvas.height / 2);
         }
         ctx.drawImage(img, photoCompletedCrop.x * scaleX, photoCompletedCrop.y * scaleY, photoCompletedCrop.width * scaleX, photoCompletedCrop.height * scaleY, 0, 0, photoCompletedCrop.width * scaleX, photoCompletedCrop.height * scaleY);
@@ -403,8 +280,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
       }
     }
     setShowPhotoCropModal(false);
-    setUploadingPhoto(true);
-    showToast('사진 업로드 중...');
+    setUploadingPhoto(true); showToast('사진 업로드 중...');
     const url = await uploadImage(fileToUpload, 'profiles');
     if (url) { setForm(f => ({ ...f, photo_url: url })); showToast('사진 업로드 완료'); }
     else showToast('업로드 실패');
@@ -412,8 +288,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
   }, [photoCompletedCrop, photoCropFile, photoRotation]);
 
   const handleCardFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = '';
+    const file = e.target.files?.[0]; e.target.value = '';
     if (!file) return;
     const reader = new FileReader();
     reader.onload = () => {
@@ -536,8 +411,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
   const handleSaveContact = () => {
     if (!alumni) return;
     saveContact(alumni);
-    setContactSaved(true);
-    showToast('연락처를 저장합니다');
+    setContactSaved(true); showToast('연락처를 저장합니다');
     setTimeout(() => setContactSaved(false), 2500);
   };
 
@@ -824,7 +698,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
           )}
         </div>
 
-        {/* ── 위치 카드 - 처음부터 지도 표시 ── */}
+        {/* ── 위치 카드 - 카카오맵 iframe (API 키 불필요) ── */}
         {!editMode && alumni.address && (
           <div style={{ background:'#fff', borderRadius:16, padding:'16px', marginBottom:10, boxShadow:'0 1px 4px rgba(13,45,110,0.07)', border:'1px solid #e2e8f0' }}>
             <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10 }}>
@@ -837,10 +711,15 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
               <button onClick={() => openMap('kakaonavi')} style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, background:'#FF6B35', border:'none', borderRadius:12, padding:'12px', fontSize:13, fontWeight:700, color:'#fff', cursor:'pointer', fontFamily:'inherit' }}>🚗 카카오내비</button>
               <button onClick={() => openMap('tmap')} style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, background:'#1B6AE4', border:'none', borderRadius:12, padding:'12px', fontSize:13, fontWeight:700, color:'#fff', cursor:'pointer', fontFamily:'inherit' }}>📡 T맵</button>
             </div>
-
-            {/* 네이버 지도 표시 영역 */}
+            {/* 카카오맵 iframe - API 키 없이 주소 검색으로 표시 */}
             <div style={{ borderRadius:12, overflow:'hidden', border:'1px solid #e2e8f0' }}>
-              <NaverMap address={alumni.address} />
+              <iframe
+                src={`https://map.kakao.com/?q=${encodeURIComponent(alumni.address)}&map_type=SKYVIEW`}
+                width="100%"
+                height="220"
+                style={{ border:'none', display:'block' }}
+                title="카카오맵"
+              />
             </div>
           </div>
         )}
