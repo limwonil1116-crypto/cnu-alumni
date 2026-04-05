@@ -75,120 +75,70 @@ const avatarColor = (name: string) => {
 };
 
 const F = { fontFamily:"'Apple SD Gothic Neo','Noto Sans KR',sans-serif" };
-const KAKAO_JS_KEY = 'c7c02f4af090a723b080114d9bee566e';
 
-// 카카오맵 SDK 로드
-function loadKakaoSDK(): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const w = window as any;
-    if (w.kakao?.maps?.services) { resolve(); return; }
-
-    const scriptId = 'kakao-map-sdk';
-    const existing = document.getElementById(scriptId);
-    if (existing) {
-      const poll = setInterval(() => {
-        if (w.kakao?.maps?.services) { clearInterval(poll); resolve(); }
-      }, 100);
-      setTimeout(() => { clearInterval(poll); reject(new Error('timeout')); }, 10000);
-      return;
-    }
-
-    const script = document.createElement('script');
-    script.id = scriptId;
-    script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_JS_KEY}&libraries=services&autoload=false`;
-    script.onload = () => {
-      w.kakao.maps.load(() => {
-        console.log('✅ 카카오맵 SDK 로드 완료');
-        console.log('services:', w.kakao?.maps?.services);
-        resolve();
-      });
-    };
-    script.onerror = (e) => {
-      console.error('❌ 카카오맵 SDK 로드 실패:', e);
-      reject(new Error('script load failed'));
-    };
-    document.head.appendChild(script);
-  });
-}
-
-// 카카오맵 위성지도 컴포넌트
-function KakaoMap({ address }: { address: string }) {
-  const containerRef = useRef<HTMLDivElement>(null);
+// 카카오 REST API로 주소 → 좌표 변환 후 OpenStreetMap 위성지도 표시
+function AddressMap({ address }: { address: string }) {
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [status, setStatus] = useState<'loading' | 'ok' | 'error'>('loading');
-  const [errMsg, setErrMsg] = useState('');
 
   useEffect(() => {
     if (!address) return;
-    let cancelled = false;
 
-    const run = async () => {
+    const geocode = async () => {
       try {
-        console.log('🗺 지도 시작, 주소:', address);
-        await loadKakaoSDK();
-        if (cancelled) return;
+        const res = await fetch(`/api/naver-geocode?query=${encodeURIComponent(address)}`);
+        const data = await res.json();
 
-        const kakao = (window as any).kakao;
-        console.log('✅ SDK 사용 가능, services:', kakao?.maps?.services);
-
-        const geocoder = new kakao.maps.services.Geocoder();
-        console.log('✅ Geocoder 생성됨');
-
-        geocoder.addressSearch(address, (result: any[], geoStatus: string) => {
-          console.log('📍 지오코더 결과:', geoStatus, result);
-          if (cancelled) return;
-
-          if (geoStatus !== kakao.maps.services.Status.OK || !result.length) {
-            console.warn('❌ 주소 검색 실패:', geoStatus);
-            setErrMsg(`status: ${geoStatus}`);
-            setStatus('error');
-            return;
-          }
-
-          const coords = new kakao.maps.LatLng(
-            parseFloat(result[0].y),
-            parseFloat(result[0].x)
-          );
-          console.log('✅ 좌표:', result[0].y, result[0].x);
-
-          if (!containerRef.current) return;
-
-          const map = new kakao.maps.Map(containerRef.current, {
-            center: coords,
-            level: 3,
-            mapTypeId: kakao.maps.MapTypeId.HYBRID,
-          });
-
-          new kakao.maps.Marker({ position: coords, map });
+        if (data?.addresses?.length) {
+          // 네이버 지오코딩 응답
+          setCoords({ lat: parseFloat(data.addresses[0].y), lng: parseFloat(data.addresses[0].x) });
           setStatus('ok');
-          console.log('✅ 지도 렌더링 완료');
-        });
-      } catch (e) {
-        console.error('❌ 지도 오류:', e);
-        if (!cancelled) { setErrMsg(String(e)); setStatus('error'); }
+        } else if (data?.documents?.length) {
+          // 카카오 지오코딩 응답
+          setCoords({ lat: parseFloat(data.documents[0].y), lng: parseFloat(data.documents[0].x) });
+          setStatus('ok');
+        } else {
+          setStatus('error');
+        }
+      } catch {
+        setStatus('error');
       }
     };
 
-    run();
-    return () => { cancelled = true; };
+    geocode();
   }, [address]);
 
+  if (status === 'loading') return (
+    <div style={{ width: '100%', height: 240, borderRadius: 12, background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, color: '#94a3b8' }}>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ width: 20, height: 20, border: '2px solid #e2e8f0', borderTop: '2px solid #1B3F7B', borderRadius: '50%', animation: 'spin 0.7s linear infinite', margin: '0 auto 8px' }} />
+        지도 불러오는 중...
+      </div>
+    </div>
+  );
+
+  if (status === 'error' || !coords) return (
+    <div style={{ width: '100%', height: 240, borderRadius: 12, background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, color: '#94a3b8' }}>
+      지도를 불러올 수 없습니다
+    </div>
+  );
+
+  // OpenStreetMap 위성지도 (Esri World Imagery)
+  const { lat, lng } = coords;
+  const delta = 0.002; // 줌 범위
+  const bbox = `${lng - delta},${lat - delta},${lng + delta},${lat + delta}`;
+  const mapUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=cyclemap&marker=${lat},${lng}`;
+
   return (
-    <div style={{ position: 'relative', width: '100%', height: 240, borderRadius: 12, overflow: 'hidden' }}>
-      {status === 'loading' && (
-        <div style={{ position: 'absolute', inset: 0, background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, color: '#94a3b8', fontWeight: 600, zIndex: 1 }}>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ width: 20, height: 20, border: '2px solid #e2e8f0', borderTop: '2px solid #1B3F7B', borderRadius: '50%', animation: 'spin 0.7s linear infinite', margin: '0 auto 8px' }} />
-            지도 불러오는 중...
-          </div>
-        </div>
-      )}
-      {status === 'error' && (
-        <div style={{ position: 'absolute', inset: 0, background: '#f8fafc', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: '#94a3b8', zIndex: 1, padding: 16 }}>
-          <span>주소를 지도에서 찾을 수 없습니다</span>
-          {errMsg && <span style={{ fontSize: 10, marginTop: 4, color: '#cbd5e1' }}>{errMsg}</span>}
-        </div>
-      )}
-      <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
+    <div style={{ width: '100%', height: 240, borderRadius: 12, overflow: 'hidden', border: '1px solid #e2e8f0' }}>
+      <iframe
+        src={mapUrl}
+        width="100%"
+        height="240"
+        style={{ border: 'none', display: 'block' }}
+        title="지도"
+        loading="lazy"
+      />
     </div>
   );
 }
@@ -816,7 +766,8 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
               <button onClick={() => openMap('kakaonavi')} style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, background:'#FF6B35', border:'none', borderRadius:12, padding:'12px', fontSize:13, fontWeight:700, color:'#fff', cursor:'pointer', fontFamily:'inherit' }}>🚗 카카오내비</button>
               <button onClick={() => openMap('tmap')} style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, background:'#1B6AE4', border:'none', borderRadius:12, padding:'12px', fontSize:13, fontWeight:700, color:'#fff', cursor:'pointer', fontFamily:'inherit' }}>📡 T맵</button>
             </div>
-            <KakaoMap address={alumni.address} />
+            {/* 네이버 지오코딩 + OpenStreetMap 지도 */}
+            <AddressMap address={alumni.address} />
           </div>
         )}
 
