@@ -138,6 +138,64 @@ async function extractCardInfo(file: File): Promise<{
   return data;
 }
 
+// ── 네이버(좌표 검색) + 구글맵(화면 표시) 하이브리드 컴포넌트 ──
+function HybridMap({ address }: { address: string }) {
+  // 1순위: 만약 네이버가 실패하더라도 뻗지 않도록, 기본 구글맵 주소(글씨 검색)를 세팅해 둡니다.
+  const [mapUrl, setMapUrl] = useState(`https://maps.google.com/maps?q=${encodeURIComponent(address)}&hl=ko&z=16&output=embed`);
+
+  useEffect(() => {
+    const clientId = process.env.NEXT_PUBLIC_NAVER_CLIENT_ID;
+    if (!clientId || !address) return;
+
+    const scriptId = 'naver-geocode-script';
+    let script = document.getElementById(scriptId) as HTMLScriptElement;
+
+    // 네이버에게 주소를 주고 GPS 좌표(위도, 경도)를 캐내는 함수
+    const getCoordinates = () => {
+      const naver = (window as any).naver;
+      if (!naver || !naver.maps || !naver.maps.Service) return;
+
+      naver.maps.Service.geocode({ query: address }, (status: any, response: any) => {
+        // 네이버가 정확한 좌표를 찾았다면?
+        if (status === naver.maps.Service.Status.OK && response.v2.addresses.length > 0) {
+          const item = response.v2.addresses[0];
+          const lat = item.y; // 위도
+          const lng = item.x; // 경도
+          
+          // 구글맵에 글씨 대신 정확한 GPS 좌표(lat, lng)를 쏴서 핀을 꽂습니다!
+          setMapUrl(`https://maps.google.com/maps?q=${lat},${lng}&hl=ko&z=16&output=embed`);
+        }
+      });
+    };
+
+    // 네이버 스크립트 몰래 불러오기 (화면엔 안 보임)
+    if (!script) {
+      script = document.createElement('script');
+      script.id = scriptId;
+      script.src = `https://openapi.map.naver.com/openapi/v3/maps.js?ncpClientId=${clientId}&submodules=geocoder`;
+      script.onload = getCoordinates;
+      // 만약 네이버 스크립트가 차단(CORS 등) 당해도 아무 일 없었다는 듯이 무시 (기본 구글맵이 뜸)
+      script.onerror = () => console.log('네이버 API 로드 실패, 기본 구글맵을 사용합니다.');
+      document.head.appendChild(script);
+    } else if ((window as any).naver) {
+      getCoordinates();
+    } else {
+      script.addEventListener('load', getCoordinates);
+    }
+  }, [address]);
+
+  return (
+    <iframe
+      src={mapUrl}
+      width="100%"
+      height="220"
+      style={{ border: 'none', display: 'block' }}
+      title="위치 지도 미리보기"
+      loading="lazy"
+    />
+  );
+}
+
 export default function ProfileDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
@@ -714,7 +772,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
           )}
         </div>
 
-        {/* ── 위치 카드 - 구글 지도 표시 ── */}
+        {/* ── 위치 카드 - 하이브리드 지도 표시 ── */}
         {!editMode && alumni.address && (
           <div style={{ background:'#fff', borderRadius:16, padding:'16px', marginBottom:10, boxShadow:'0 1px 4px rgba(13,45,110,0.07)', border:'1px solid #e2e8f0' }}>
             <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10 }}>
@@ -728,16 +786,9 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
               <button onClick={() => openMap('tmap')} style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, background:'#1B6AE4', border:'none', borderRadius:12, padding:'12px', fontSize:13, fontWeight:700, color:'#fff', cursor:'pointer', fontFamily:'inherit' }}>📡 T맵</button>
             </div>
 
-            {/* 구글 지도 표시 영역 */}
+            {/* 하이브리드 지도 (네이버 좌표 + 구글맵 표시) */}
             <div style={{ borderRadius:12, overflow:'hidden', border:'1px solid #e2e8f0' }}>
-              <iframe
-                src={"https://maps.google.com/maps?q=" + encodeURIComponent(alumni.address) + "&t=&z=16&ie=UTF8&iwloc=&output=embed"}
-                width="100%"
-                height="220"
-                style={{ border:'none', display:'block' }}
-                title="위치 지도 미리보기"
-                loading="lazy"
-              />
+              <HybridMap address={alumni.address} />
             </div>
           </div>
         )}
