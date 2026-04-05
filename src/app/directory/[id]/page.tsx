@@ -145,7 +145,6 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState('');
   const [showCard, setShowCard] = useState(false);
-  const [showMap, setShowMap] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
@@ -229,7 +228,6 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
     showToast(label + ' 복사됨');
   };
 
-  // 프로필 사진 선택 → 편집 모달
   const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = '';
@@ -248,17 +246,13 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
 
   const onPhotoImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
     const { width, height } = e.currentTarget;
-    const c = centerCrop(
-      makeAspectCrop({ unit: '%', width: 80 }, 1, width, height),
-      width, height
-    );
+    const c = centerCrop(makeAspectCrop({ unit: '%', width: 80 }, 1, width, height), width, height);
     setPhotoCrop(c);
   };
 
   const handlePhotoCropComplete = useCallback(async () => {
     if (!photoCropFile) return;
     let fileToUpload = photoCropFile;
-
     if (photoCompletedCrop && photoImgRef.current && photoCompletedCrop.width > 0 && photoCompletedCrop.height > 0) {
       const canvas = document.createElement('canvas');
       const img = photoImgRef.current;
@@ -270,20 +264,14 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
       if (ctx) {
         if (photoRotation !== 0) {
           const rad = (photoRotation * Math.PI) / 180;
-          const cos = Math.abs(Math.cos(rad));
-          const sin = Math.abs(Math.sin(rad));
+          const cos = Math.abs(Math.cos(rad)); const sin = Math.abs(Math.sin(rad));
           canvas.width = canvas.height * sin + canvas.width * cos;
           canvas.height = canvas.height * cos + canvas.width * sin;
           ctx.translate(canvas.width / 2, canvas.height / 2);
           ctx.rotate(rad);
           ctx.translate(-canvas.width / 2, -canvas.height / 2);
         }
-        ctx.drawImage(
-          img,
-          photoCompletedCrop.x * scaleX, photoCompletedCrop.y * scaleY,
-          photoCompletedCrop.width * scaleX, photoCompletedCrop.height * scaleY,
-          0, 0, photoCompletedCrop.width * scaleX, photoCompletedCrop.height * scaleY
-        );
+        ctx.drawImage(img, photoCompletedCrop.x * scaleX, photoCompletedCrop.y * scaleY, photoCompletedCrop.width * scaleX, photoCompletedCrop.height * scaleY, 0, 0, photoCompletedCrop.width * scaleX, photoCompletedCrop.height * scaleY);
         const blob = await new Promise<Blob>(resolve => canvas.toBlob(b => resolve(b!), 'image/jpeg', 0.95));
         fileToUpload = new File([blob], photoCropFile.name, { type: 'image/jpeg' });
       }
@@ -292,21 +280,18 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
       if (img) {
         const canvas = document.createElement('canvas');
         const rad = (photoRotation * Math.PI) / 180;
-        const cos = Math.abs(Math.cos(rad));
-        const sin = Math.abs(Math.sin(rad));
+        const cos = Math.abs(Math.cos(rad)); const sin = Math.abs(Math.sin(rad));
         canvas.width = img.naturalHeight * sin + img.naturalWidth * cos;
         canvas.height = img.naturalHeight * cos + img.naturalWidth * sin;
         const ctx = canvas.getContext('2d');
         if (ctx) {
-          ctx.translate(canvas.width / 2, canvas.height / 2);
-          ctx.rotate(rad);
+          ctx.translate(canvas.width / 2, canvas.height / 2); ctx.rotate(rad);
           ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2);
           const blob = await new Promise<Blob>(resolve => canvas.toBlob(b => resolve(b!), 'image/jpeg', 0.95));
           fileToUpload = new File([blob], photoCropFile.name, { type: 'image/jpeg' });
         }
       }
     }
-
     setShowPhotoCropModal(false);
     setUploadingPhoto(true);
     showToast('사진 업로드 중...');
@@ -316,18 +301,14 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
     setUploadingPhoto(false);
   }, [photoCompletedCrop, photoCropFile, photoRotation]);
 
-  // 명함 파일 선택 → 편집 모달
   const handleCardFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
     const reader = new FileReader();
     reader.onload = () => {
-      setCropSrc(reader.result as string);
-      setCropFile(file);
-      setCrop(undefined);
-      setCompletedCrop(undefined);
-      setRotation(0);
+      setCropSrc(reader.result as string); setCropFile(file);
+      setCrop(undefined); setCompletedCrop(undefined); setRotation(0);
       setShowCropModal(true);
     };
     reader.readAsDataURL(file);
@@ -335,42 +316,28 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
 
   const onImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
     const { width, height } = e.currentTarget;
-    const c = centerCrop(
-      makeAspectCrop({ unit: '%', width: 90 }, 16 / 9, width, height),
-      width, height
-    );
-    setCrop(c);
+    setCrop(centerCrop(makeAspectCrop({ unit: '%', width: 90 }, 16 / 9, width, height), width, height));
   };
 
   const handleCropComplete = useCallback(async () => {
     if (!cropFile) return;
     let fileToUpload = cropFile;
-
     if (completedCrop && imgRef.current && completedCrop.width > 0 && completedCrop.height > 0) {
       const canvas = document.createElement('canvas');
       const img = imgRef.current;
-      const scaleX = img.naturalWidth / img.width;
-      const scaleY = img.naturalHeight / img.height;
-      canvas.width = completedCrop.width * scaleX;
-      canvas.height = completedCrop.height * scaleY;
+      const scaleX = img.naturalWidth / img.width; const scaleY = img.naturalHeight / img.height;
+      canvas.width = completedCrop.width * scaleX; canvas.height = completedCrop.height * scaleY;
       const ctx = canvas.getContext('2d');
       if (ctx) {
         if (rotation !== 0) {
           const rad = (rotation * Math.PI) / 180;
-          const cos = Math.abs(Math.cos(rad));
-          const sin = Math.abs(Math.sin(rad));
+          const cos = Math.abs(Math.cos(rad)); const sin = Math.abs(Math.sin(rad));
           canvas.width = canvas.height * sin + canvas.width * cos;
           canvas.height = canvas.height * cos + canvas.width * sin;
-          ctx.translate(canvas.width / 2, canvas.height / 2);
-          ctx.rotate(rad);
+          ctx.translate(canvas.width / 2, canvas.height / 2); ctx.rotate(rad);
           ctx.translate(-canvas.width / 2, -canvas.height / 2);
         }
-        ctx.drawImage(
-          img,
-          completedCrop.x * scaleX, completedCrop.y * scaleY,
-          completedCrop.width * scaleX, completedCrop.height * scaleY,
-          0, 0, completedCrop.width * scaleX, completedCrop.height * scaleY
-        );
+        ctx.drawImage(img, completedCrop.x * scaleX, completedCrop.y * scaleY, completedCrop.width * scaleX, completedCrop.height * scaleY, 0, 0, completedCrop.width * scaleX, completedCrop.height * scaleY);
         const blob = await new Promise<Blob>(resolve => canvas.toBlob(b => resolve(b!), 'image/jpeg', 0.95));
         fileToUpload = new File([blob], cropFile.name, { type: 'image/jpeg' });
       }
@@ -379,41 +346,30 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
       if (img) {
         const canvas = document.createElement('canvas');
         const rad = (rotation * Math.PI) / 180;
-        const cos = Math.abs(Math.cos(rad));
-        const sin = Math.abs(Math.sin(rad));
+        const cos = Math.abs(Math.cos(rad)); const sin = Math.abs(Math.sin(rad));
         canvas.width = img.naturalHeight * sin + img.naturalWidth * cos;
         canvas.height = img.naturalHeight * cos + img.naturalWidth * sin;
         const ctx = canvas.getContext('2d');
         if (ctx) {
-          ctx.translate(canvas.width / 2, canvas.height / 2);
-          ctx.rotate(rad);
+          ctx.translate(canvas.width / 2, canvas.height / 2); ctx.rotate(rad);
           ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2);
           const blob = await new Promise<Blob>(resolve => canvas.toBlob(b => resolve(b!), 'image/jpeg', 0.95));
           fileToUpload = new File([blob], cropFile.name, { type: 'image/jpeg' });
         }
       }
     }
-
     setShowCropModal(false);
     await handleCardUploadWithFile(fileToUpload);
   }, [completedCrop, cropFile, rotation]);
 
   const handleCardUploadWithFile = async (file: File) => {
-    setUploadingCard(true);
-    setExtracting(true);
+    setUploadingCard(true); setExtracting(true);
     showToast('명함 업로드 및 AI 분석 중...');
-
     try {
-      const [url, info] = await Promise.all([
-        uploadImage(file, 'cards'),
-        extractCardInfo(file),
-      ]);
-
+      const [url, info] = await Promise.all([uploadImage(file, 'cards'), extractCardInfo(file)]);
       if (!url) { showToast('업로드 실패'); return; }
-
       setForm(prev => ({
-        ...prev,
-        card_image_url: url,
+        ...prev, card_image_url: url,
         company:       info.company      ? info.company      : prev.company,
         job_title:     info.job_title    ? info.job_title    : prev.job_title,
         phone:         info.phone        ? info.phone        : prev.phone,
@@ -422,92 +378,45 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
         profile_email: info.email        ? info.email        : prev.profile_email,
         address:       info.address      ? info.address      : prev.address,
       }));
-
       const changed: string[] = [];
-      if (info.company)      changed.push('부서');
-      if (info.job_title)    changed.push('직책');
-      if (info.phone)        changed.push('전화번호');
-      if (info.office_phone) changed.push('사무실전화');
-      if (info.fax)          changed.push('FAX');
-      if (info.email)        changed.push('이메일');
-      if (info.address)      changed.push('주소');
-
-      if (info.phone) {
-        await supabase.from('alumni_master').update({ phone: info.phone }).eq('id', id);
-      }
-
-      const { data: existingProfile } = await supabase
-        .from('alumni_profiles').select('id').eq('alumni_id', id).single();
-
+      if (info.company) changed.push('부서'); if (info.job_title) changed.push('직책');
+      if (info.phone) changed.push('전화번호'); if (info.office_phone) changed.push('사무실전화');
+      if (info.fax) changed.push('FAX'); if (info.email) changed.push('이메일');
+      if (info.address) changed.push('주소');
+      if (info.phone) await supabase.from('alumni_master').update({ phone: info.phone }).eq('id', id);
+      const { data: existingProfile } = await supabase.from('alumni_profiles').select('id').eq('alumni_id', id).single();
       const profileData = {
-        ...(info.company      ? { company: info.company }           : {}),
-        ...(info.job_title    ? { job_title: info.job_title }       : {}),
-        ...(info.address      ? { address: info.address }           : {}),
+        ...(info.company ? { company: info.company } : {}),
+        ...(info.job_title ? { job_title: info.job_title } : {}),
+        ...(info.address ? { address: info.address } : {}),
         ...(info.office_phone ? { office_phone: info.office_phone } : {}),
-        ...(info.fax          ? { fax: info.fax }                   : {}),
-        ...(info.email        ? { email: info.email }               : {}),
+        ...(info.fax ? { fax: info.fax } : {}),
+        ...(info.email ? { email: info.email } : {}),
         card_image_url: url,
       };
-
       if (existingProfile) {
         await supabase.from('alumni_profiles').update(profileData).eq('id', existingProfile.id);
       } else {
-        await supabase.from('alumni_profiles').insert({
-          alumni_id: id,
-          company: info.company || null, job_title: info.job_title || null,
-          address: info.address || null, card_image_url: url,
-          office_phone: info.office_phone || null, fax: info.fax || null,
-          email: info.email || null,
-        });
+        await supabase.from('alumni_profiles').insert({ alumni_id: id, company: info.company || null, job_title: info.job_title || null, address: info.address || null, card_image_url: url, office_phone: info.office_phone || null, fax: info.fax || null, email: info.email || null });
       }
-
       await fetchData();
-
-      if (changed.length > 0) {
-        showToast(`✨ AI가 ${changed.join(', ')}을(를) 자동 저장했어요!`);
-      } else {
-        showToast('명함 등록 완료! 정보가 없으면 직접 입력해주세요.');
-      }
-
+      if (changed.length > 0) showToast(`✨ AI가 ${changed.join(', ')}을(를) 자동 저장했어요!`);
+      else showToast('명함 등록 완료! 정보가 없으면 직접 입력해주세요.');
     } catch {
       showToast('AI 분석 실패 - 직접 입력 후 저장해주세요');
     } finally {
-      setUploadingCard(false);
-      setExtracting(false);
+      setUploadingCard(false); setExtracting(false);
     }
   };
 
   const handleSave = async () => {
     setSaving(true);
-    await supabase.from('alumni_master').update({
-      phone: form.phone || null,
-      organization: form.organization,
-    }).eq('id', id);
-
-    const { data: existingProfile } = await supabase
-      .from('alumni_profiles').select('id').eq('alumni_id', id).single();
-
+    await supabase.from('alumni_master').update({ phone: form.phone || null, organization: form.organization }).eq('id', id);
+    const { data: existingProfile } = await supabase.from('alumni_profiles').select('id').eq('alumni_id', id).single();
     if (existingProfile) {
-      await supabase.from('alumni_profiles').update({
-        company: form.company || null, job_title: form.job_title || null,
-        region: form.region || null, address: form.address || null,
-        bio: form.bio || null, photo_url: form.photo_url || null,
-        card_image_url: form.card_image_url || null,
-        office_phone: form.office_phone || null,
-        fax: form.fax || null,
-        email: form.profile_email || null,
-      }).eq('id', existingProfile.id);
+      await supabase.from('alumni_profiles').update({ company: form.company || null, job_title: form.job_title || null, region: form.region || null, address: form.address || null, bio: form.bio || null, photo_url: form.photo_url || null, card_image_url: form.card_image_url || null, office_phone: form.office_phone || null, fax: form.fax || null, email: form.profile_email || null }).eq('id', existingProfile.id);
     } else {
-      await supabase.from('alumni_profiles').insert({
-        alumni_id: id,
-        company: form.company || null, job_title: form.job_title || null,
-        region: form.region || null, address: form.address || null,
-        bio: form.bio || null, photo_url: form.photo_url || null,
-        card_image_url: form.card_image_url || null,
-        office_phone: form.office_phone || null,
-        fax: form.fax || null,
-        email: form.profile_email || null,
-      });
+      await supabase.from('alumni_profiles').insert({ alumni_id: id, company: form.company || null, job_title: form.job_title || null, region: form.region || null, address: form.address || null, bio: form.bio || null, photo_url: form.photo_url || null, card_image_url: form.card_image_url || null, office_phone: form.office_phone || null, fax: form.fax || null, email: form.profile_email || null });
     }
     await fetchData();
     setSaving(false); setEditMode(false);
@@ -522,25 +431,19 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
     setTimeout(() => setContactSaved(false), 2500);
   };
 
-  // 지도 앱 열기
   const openMap = (type: 'kakao' | 'naver' | 'kakaonavi' | 'tmap') => {
     if (!alumni?.address) return;
     const addr = encodeURIComponent(alumni.address);
-
     if (type === 'kakao') {
-      // 카카오맵 - 주소 검색
       window.location.href = `kakaomap://search?q=${addr}`;
       setTimeout(() => window.open(`https://map.kakao.com/link/search/${addr}`, '_blank'), 1500);
     } else if (type === 'naver') {
-      // 네이버맵
       window.location.href = `nmap://search?query=${addr}&appname=com.cnu.alumni`;
       setTimeout(() => window.open(`https://map.naver.com/v5/search/${addr}`, '_blank'), 1500);
     } else if (type === 'kakaonavi') {
-      // 카카오내비 - 목적지 검색으로 실행
       window.location.href = `kakaonavi://navigate?destination[name]=${addr}&destination[search_keyword]=${addr}`;
       setTimeout(() => window.open(`https://map.kakao.com/link/search/${addr}`, '_blank'), 1500);
     } else if (type === 'tmap') {
-      // T맵 - 앱 실행, 미설치시 구글맵
       window.location.href = `tmap://search?name=${addr}`;
       setTimeout(() => window.open(`https://www.google.com/maps/search/?api=1&query=${addr}`, '_blank'), 1500);
     }
@@ -578,12 +481,8 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
   const OrgBadge = ({ height = 14 }: { height?: number }) => (
     <div style={{ display:'flex', alignItems:'center', gap:5 }}>
       {ORG_LOGO[org] ? (
-        <img src={ORG_LOGO[org]} alt={org}
-          onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
-          style={{ height, width:'auto', objectFit:'contain' }} />
-      ) : ORG_EMOJI[org] ? (
-        <span style={{ fontSize: height }}>{ORG_EMOJI[org]}</span>
-      ) : null}
+        <img src={ORG_LOGO[org]} alt={org} onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} style={{ height, width:'auto', objectFit:'contain' }} />
+      ) : ORG_EMOJI[org] ? <span style={{ fontSize: height }}>{ORG_EMOJI[org]}</span> : null}
       <span style={{ fontSize:14, fontWeight:600, color:'#0f172a' }}>{org}</span>
     </div>
   );
@@ -603,7 +502,6 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
             {saving ? '저장중...' : editMode ? '저장' : '수정'}
           </button>
         </div>
-
         <div style={{ display:'flex', flexDirection:'column', alignItems:'center', padding:'8px 16px 20px' }}>
           <div style={{ position:'relative', marginBottom:14 }}>
             <div style={{ width:96, height:96, borderRadius:20, background:avatarColor(alumni.name), border:'3px solid rgba(255,255,255,0.4)', overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 4px 16px rgba(0,0,0,0.3)' }}>
@@ -625,24 +523,15 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
           {alumni.job_title && <p style={{ color:'rgba(255,255,255,0.75)', fontSize:13, marginBottom:2 }}>{alumni.job_title}</p>}
           {alumni.company && <p style={{ color:'rgba(255,255,255,0.55)', fontSize:12 }}>{alumni.company}</p>}
         </div>
-
         <div style={{ display:'flex', justifyContent:'center', gap:8, flexWrap:'wrap', padding:'0 16px 14px' }}>
           {alumni.admission_year && (
-            <span style={{ background:'rgba(255,255,255,0.15)', color:'#fff', fontSize:11, padding:'4px 14px', borderRadius:20, border:'1px solid rgba(255,255,255,0.2)' }}>
-              입학 {alumni.admission_year}년
-            </span>
+            <span style={{ background:'rgba(255,255,255,0.15)', color:'#fff', fontSize:11, padding:'4px 14px', borderRadius:20, border:'1px solid rgba(255,255,255,0.2)' }}>입학 {alumni.admission_year}년</span>
           )}
           {alumni.department && (
-            <span style={{ background:'rgba(255,255,255,0.15)', color:'#fff', fontSize:11, padding:'4px 14px', borderRadius:20, border:'1px solid rgba(255,255,255,0.2)' }}>
-              {alumni.department}
-            </span>
+            <span style={{ background:'rgba(255,255,255,0.15)', color:'#fff', fontSize:11, padding:'4px 14px', borderRadius:20, border:'1px solid rgba(255,255,255,0.2)' }}>{alumni.department}</span>
           )}
           <span style={{ display:'flex', alignItems:'center', gap:5, background:'rgba(255,255,255,0.15)', color:'#fff', fontSize:11, padding:'4px 10px', borderRadius:20, border:'1px solid rgba(255,255,255,0.2)' }}>
-            {ORG_LOGO[org] ? (
-              <img src={ORG_LOGO[org]} alt={org}
-                onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                style={{ height:14, width:'auto', objectFit:'contain' }} />
-            ) : ORG_EMOJI[org] ? <span>{ORG_EMOJI[org]}</span> : null}
+            {ORG_LOGO[org] ? <img src={ORG_LOGO[org]} alt={org} onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} style={{ height:14, width:'auto', objectFit:'contain' }} /> : ORG_EMOJI[org] ? <span>{ORG_EMOJI[org]}</span> : null}
             {org}
           </span>
         </div>
@@ -659,10 +548,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
               <span style={{ fontSize:22, flexShrink:0 }}>✨</span>
               <div>
                 <p style={{ fontSize:13, fontWeight:700, color:'#5b21b6', marginBottom:3 }}>AI 명함 자동입력 기능</p>
-                <p style={{ fontSize:12, color:'#7c3aed', lineHeight:1.7 }}>
-                  아래 명함 카드에서 📷 촬영 또는 🖼 갤러리로 등록하면<br/>
-                  편집(자르기·회전) 후 AI가 자동으로 정보를 저장해드려요!
-                </p>
+                <p style={{ fontSize:12, color:'#7c3aed', lineHeight:1.7 }}>아래 명함 카드에서 📷 촬영 또는 🖼 갤러리로 등록하면<br/>편집(자르기·회전) 후 AI가 자동으로 정보를 저장해드려요!</p>
               </div>
             </div>
           </>
@@ -681,29 +567,23 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
             {alumni.phone && (
               <button onClick={handleSaveContact}
                 style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'center', gap:8, padding:'12px', background: contactSaved ? 'linear-gradient(135deg,#16a34a,#15803d)' : 'linear-gradient(135deg,#0d2d6e,#1B3F7B)', border:'none', borderRadius:12, color:'#fff', fontSize:14, fontWeight:700, cursor:'pointer', fontFamily:'inherit', marginBottom:10, boxShadow:'0 3px 10px rgba(13,45,110,0.25)', transition:'all 0.2s' }}>
-                {contactSaved
-                  ? <><svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>연락처 저장 완료!</>
-                  : <><svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>연락처 저장하기</>
-                }
+                {contactSaved ? <><svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>연락처 저장 완료!</> : <><svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>연락처 저장하기</>}
               </button>
             )}
             <div style={{ display:'flex', gap:8 }}>
               {alumni.phone && (
                 <a href={'tel:' + alumni.phone} style={{ flex:1, background:'#eff6ff', color:'#1B3F7B', borderRadius:10, padding:'10px', textAlign:'center', fontSize:13, fontWeight:700, textDecoration:'none', display:'flex', flexDirection:'column', alignItems:'center', gap:3 }}>
-                  <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-                  전화
+                  <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>전화
                 </a>
               )}
               {alumni.phone && (
                 <a href={'sms:' + alumni.phone} style={{ flex:1, background:'#f8fafc', color:'#475569', borderRadius:10, padding:'10px', textAlign:'center', fontSize:13, fontWeight:700, textDecoration:'none', display:'flex', flexDirection:'column', alignItems:'center', gap:3 }}>
-                  <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                  문자
+                  <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>문자
                 </a>
               )}
               {displayEmail && (
                 <a href={'mailto:' + displayEmail} style={{ flex:1, background:'#f8fafc', color:'#475569', borderRadius:10, padding:'10px', textAlign:'center', fontSize:13, fontWeight:700, textDecoration:'none', display:'flex', flexDirection:'column', alignItems:'center', gap:3 }}>
-                  <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-                  메일
+                  <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>메일
                 </a>
               )}
             </div>
@@ -748,37 +628,25 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
               {alumni.job_title && <InfoRow label="직무/직책" value={alumni.job_title} />}
               {alumni.phone && (
                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'6px 0', borderBottom:'1px solid #f1f5f9' }}>
-                  <div>
-                    <p style={{ fontSize:10, color:'#94a3b8', marginBottom:2 }}>휴대폰</p>
-                    <p style={{ fontSize:14, fontWeight:600, color:'#0f172a' }}>{alumni.phone}</p>
-                  </div>
+                  <div><p style={{ fontSize:10, color:'#94a3b8', marginBottom:2 }}>휴대폰</p><p style={{ fontSize:14, fontWeight:600, color:'#0f172a' }}>{alumni.phone}</p></div>
                   <button onClick={() => copy(alumni.phone!, '휴대폰')} style={{ background:'#eff6ff', border:'none', borderRadius:8, padding:'5px 12px', fontSize:11, color:'#1B3F7B', fontWeight:600, cursor:'pointer' }}>복사</button>
                 </div>
               )}
               {alumni.office_phone && (
                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'6px 0', borderBottom:'1px solid #f1f5f9' }}>
-                  <div>
-                    <p style={{ fontSize:10, color:'#94a3b8', marginBottom:2 }}>사무실 전화</p>
-                    <p style={{ fontSize:14, fontWeight:600, color:'#0f172a' }}>{alumni.office_phone}</p>
-                  </div>
+                  <div><p style={{ fontSize:10, color:'#94a3b8', marginBottom:2 }}>사무실 전화</p><p style={{ fontSize:14, fontWeight:600, color:'#0f172a' }}>{alumni.office_phone}</p></div>
                   <button onClick={() => copy(alumni.office_phone!, '사무실 전화')} style={{ background:'#eff6ff', border:'none', borderRadius:8, padding:'5px 12px', fontSize:11, color:'#1B3F7B', fontWeight:600, cursor:'pointer' }}>복사</button>
                 </div>
               )}
               {alumni.fax && (
                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'6px 0', borderBottom:'1px solid #f1f5f9' }}>
-                  <div>
-                    <p style={{ fontSize:10, color:'#94a3b8', marginBottom:2 }}>FAX</p>
-                    <p style={{ fontSize:14, fontWeight:600, color:'#0f172a' }}>{alumni.fax}</p>
-                  </div>
+                  <div><p style={{ fontSize:10, color:'#94a3b8', marginBottom:2 }}>FAX</p><p style={{ fontSize:14, fontWeight:600, color:'#0f172a' }}>{alumni.fax}</p></div>
                   <button onClick={() => copy(alumni.fax!, 'FAX')} style={{ background:'#eff6ff', border:'none', borderRadius:8, padding:'5px 12px', fontSize:11, color:'#1B3F7B', fontWeight:600, cursor:'pointer' }}>복사</button>
                 </div>
               )}
               {displayEmail && (
                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'6px 0', borderBottom:'1px solid #f1f5f9' }}>
-                  <div>
-                    <p style={{ fontSize:10, color:'#94a3b8', marginBottom:2 }}>이메일{alumni.profile_email ? ' (명함)' : ''}</p>
-                    <p style={{ fontSize:14, fontWeight:600, color:'#0f172a' }}>{displayEmail}</p>
-                  </div>
+                  <div><p style={{ fontSize:10, color:'#94a3b8', marginBottom:2 }}>이메일{alumni.profile_email ? ' (명함)' : ''}</p><p style={{ fontSize:14, fontWeight:600, color:'#0f172a' }}>{displayEmail}</p></div>
                   <button onClick={() => copy(displayEmail, '이메일')} style={{ background:'#eff6ff', border:'none', borderRadius:8, padding:'5px 12px', fontSize:11, color:'#1B3F7B', fontWeight:600, cursor:'pointer' }}>복사</button>
                 </div>
               )}
@@ -833,7 +701,6 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
           </div>
           <input ref={cardRef} type="file" accept="image/*" style={{ display:'none' }} onChange={handleCardFileSelect} />
           <input ref={cardCameraRef} type="file" accept="image/*" capture="environment" style={{ display:'none' }} onChange={handleCardFileSelect} />
-
           {(editMode ? form.card_image_url : alumni.card_image_url) ? (
             <img src={editMode ? form.card_image_url : alumni.card_image_url!} alt="명함"
               onClick={() => !editMode && setShowCard(true)}
@@ -847,7 +714,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
           )}
         </div>
 
-        {/* ── 위치 카드 ── */}
+        {/* ── 위치 카드 - 처음부터 지도 표시 ── */}
         {!editMode && alumni.address && (
           <div style={{ background:'#fff', borderRadius:16, padding:'16px', marginBottom:10, boxShadow:'0 1px 4px rgba(13,45,110,0.07)', border:'1px solid #e2e8f0' }}>
             <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10 }}>
@@ -860,20 +727,16 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
               <button onClick={() => openMap('kakaonavi')} style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, background:'#FF6B35', border:'none', borderRadius:12, padding:'12px', fontSize:13, fontWeight:700, color:'#fff', cursor:'pointer', fontFamily:'inherit' }}>🚗 카카오내비</button>
               <button onClick={() => openMap('tmap')} style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, background:'#1B6AE4', border:'none', borderRadius:12, padding:'12px', fontSize:13, fontWeight:700, color:'#fff', cursor:'pointer', fontFamily:'inherit' }}>📡 T맵</button>
             </div>
-            {!showMap ? (
-              <button onClick={() => setShowMap(true)} style={{ width:'100%', padding:'10px', background:'#f8fafc', border:'1px solid #e2e8f0', borderRadius:10, fontSize:13, color:'#475569', cursor:'pointer', fontFamily:'inherit', fontWeight:500 }}>
-                🗺 지도 미리보기
-              </button>
-            ) : (
-              <>
-                <div style={{ borderRadius:12, overflow:'hidden', border:'1px solid #e2e8f0', marginBottom:8 }}>
-                  <iframe src={`https://map.kakao.com/?q=${encodeURIComponent(alumni.address)}`} width="100%" height="200" style={{ border:'none', display:'block' }} title="카카오맵" />
-                </div>
-                <button onClick={() => setShowMap(false)} style={{ width:'100%', padding:'8px', background:'#f1f5f9', border:'none', borderRadius:10, fontSize:12, color:'#64748b', cursor:'pointer', fontFamily:'inherit' }}>
-                  지도 닫기
-                </button>
-              </>
-            )}
+            {/* 처음부터 지도 표시 (위성지도) */}
+            <div style={{ borderRadius:12, overflow:'hidden', border:'1px solid #e2e8f0' }}>
+              <iframe
+                src={`https://map.kakao.com/?q=${encodeURIComponent(alumni.address)}&map_type=SKYVIEW`}
+                width="100%"
+                height="220"
+                style={{ border:'none', display:'block' }}
+                title="카카오맵"
+              />
+            </div>
           </div>
         )}
 
@@ -884,10 +747,8 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
               company: alumni.company||'', job_title: alumni.job_title||'',
               region: alumni.region||'', address: alumni.address||'',
               bio: alumni.bio||'', phone: alumni.phone||'',
-              email: alumni.email||'',
-              office_phone: alumni.office_phone||'',
-              fax: alumni.fax||'',
-              profile_email: alumni.profile_email||'',
+              email: alumni.email||'', office_phone: alumni.office_phone||'',
+              fax: alumni.fax||'', profile_email: alumni.profile_email||'',
               photo_url: alumni.photo_url||'', card_image_url: alumni.card_image_url||'',
               organization: alumni.organization||'한국농어촌공사'
             });
@@ -910,10 +771,7 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
               <style>{`@keyframes dot1{0%,80%,100%{transform:scale(0.6);opacity:0.4}40%{transform:scale(1);opacity:1}}`}</style>
             </div>
             <p style={{ fontSize:16, fontWeight:800, color:'#0f172a', marginBottom:6 }}>AI 명함 분석 중</p>
-            <p style={{ fontSize:13, color:'#64748b', lineHeight:1.7 }}>
-              Gemini AI가 명함에서<br/>정보를 추출하고 있어요<br/>
-              <span style={{ fontSize:11, color:'#94a3b8' }}>잠시만 기다려주세요...</span>
-            </p>
+            <p style={{ fontSize:13, color:'#64748b', lineHeight:1.7 }}>Gemini AI가 명함에서<br/>정보를 추출하고 있어요<br/><span style={{ fontSize:11, color:'#94a3b8' }}>잠시만 기다려주세요...</span></p>
           </div>
         </div>
       )}
@@ -925,23 +783,15 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
           <p style={{ color:'rgba(255,255,255,0.5)', fontSize:11, marginBottom:12 }}>드래그로 자르기 영역 선택 · 회전 버튼으로 방향 조정</p>
           <div style={{ maxWidth:380, width:'100%', maxHeight:'55vh', overflow:'auto', marginBottom:16, borderRadius:12 }}>
             <ReactCrop crop={photoCrop} onChange={(c: Crop) => setPhotoCrop(c)} onComplete={(c: Crop) => setPhotoCompletedCrop(c)}>
-              <img ref={photoImgRef} src={photoCropSrc} onLoad={onPhotoImageLoad}
-                style={{ maxWidth:'100%', transform:`rotate(${photoRotation}deg)`, transition:'transform 0.25s', display:'block' }} />
+              <img ref={photoImgRef} src={photoCropSrc} onLoad={onPhotoImageLoad} style={{ maxWidth:'100%', transform:`rotate(${photoRotation}deg)`, transition:'transform 0.25s', display:'block' }} />
             </ReactCrop>
           </div>
           <div style={{ display:'flex', gap:8, marginBottom:12, flexWrap:'wrap', justifyContent:'center' }}>
-            <button onClick={() => setPhotoRotation(r => (r + 90) % 360)}
-              style={{ background:'rgba(255,255,255,0.15)', border:'1px solid rgba(255,255,255,0.3)', borderRadius:10, padding:'9px 16px', color:'#fff', fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>
-              🔄 90° 회전
-            </button>
-            <button onClick={handlePhotoCropComplete} disabled={uploadingPhoto}
-              style={{ background:'#1B3F7B', border:'none', borderRadius:10, padding:'9px 20px', color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:'inherit', opacity: uploadingPhoto ? 0.7 : 1 }}>
+            <button onClick={() => setPhotoRotation(r => (r + 90) % 360)} style={{ background:'rgba(255,255,255,0.15)', border:'1px solid rgba(255,255,255,0.3)', borderRadius:10, padding:'9px 16px', color:'#fff', fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>🔄 90° 회전</button>
+            <button onClick={handlePhotoCropComplete} disabled={uploadingPhoto} style={{ background:'#1B3F7B', border:'none', borderRadius:10, padding:'9px 20px', color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:'inherit', opacity: uploadingPhoto ? 0.7 : 1 }}>
               {uploadingPhoto ? '⏳ 업로드중...' : '✅ 완료'}
             </button>
-            <button onClick={() => { setShowPhotoCropModal(false); setPhotoCropSrc(''); }}
-              style={{ background:'rgba(255,255,255,0.1)', border:'1px solid rgba(255,255,255,0.2)', borderRadius:10, padding:'9px 16px', color:'#fff', fontSize:13, cursor:'pointer', fontFamily:'inherit' }}>
-              취소
-            </button>
+            <button onClick={() => { setShowPhotoCropModal(false); setPhotoCropSrc(''); }} style={{ background:'rgba(255,255,255,0.1)', border:'1px solid rgba(255,255,255,0.2)', borderRadius:10, padding:'9px 16px', color:'#fff', fontSize:13, cursor:'pointer', fontFamily:'inherit' }}>취소</button>
           </div>
         </div>
       )}
@@ -953,23 +803,15 @@ export default function ProfileDetailPage({ params }: { params: Promise<{ id: st
           <p style={{ color:'rgba(255,255,255,0.5)', fontSize:11, marginBottom:12 }}>드래그로 자르기 영역 선택 · 회전 버튼으로 방향 조정</p>
           <div style={{ maxWidth:380, width:'100%', maxHeight:'55vh', overflow:'auto', marginBottom:16, borderRadius:12 }}>
             <ReactCrop crop={crop} onChange={(c: Crop) => setCrop(c)} onComplete={(c: Crop) => setCompletedCrop(c)}>
-              <img ref={imgRef} src={cropSrc} onLoad={onImageLoad}
-                style={{ maxWidth:'100%', transform:`rotate(${rotation}deg)`, transition:'transform 0.25s', display:'block' }} />
+              <img ref={imgRef} src={cropSrc} onLoad={onImageLoad} style={{ maxWidth:'100%', transform:`rotate(${rotation}deg)`, transition:'transform 0.25s', display:'block' }} />
             </ReactCrop>
           </div>
           <div style={{ display:'flex', gap:8, marginBottom:12, flexWrap:'wrap', justifyContent:'center' }}>
-            <button onClick={() => setRotation(r => (r + 90) % 360)}
-              style={{ background:'rgba(255,255,255,0.15)', border:'1px solid rgba(255,255,255,0.3)', borderRadius:10, padding:'9px 16px', color:'#fff', fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>
-              🔄 90° 회전
-            </button>
-            <button onClick={handleCropComplete} disabled={uploadingCard || extracting}
-              style={{ background:'#7c3aed', border:'none', borderRadius:10, padding:'9px 20px', color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:'inherit', opacity: uploadingCard || extracting ? 0.7 : 1 }}>
+            <button onClick={() => setRotation(r => (r + 90) % 360)} style={{ background:'rgba(255,255,255,0.15)', border:'1px solid rgba(255,255,255,0.3)', borderRadius:10, padding:'9px 16px', color:'#fff', fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>🔄 90° 회전</button>
+            <button onClick={handleCropComplete} disabled={uploadingCard || extracting} style={{ background:'#7c3aed', border:'none', borderRadius:10, padding:'9px 20px', color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:'inherit', opacity: uploadingCard || extracting ? 0.7 : 1 }}>
               {uploadingCard || extracting ? '⏳ 분석중...' : '✅ 완료 및 AI 분석'}
             </button>
-            <button onClick={() => { setShowCropModal(false); setCropSrc(''); }}
-              style={{ background:'rgba(255,255,255,0.1)', border:'1px solid rgba(255,255,255,0.2)', borderRadius:10, padding:'9px 16px', color:'#fff', fontSize:13, cursor:'pointer', fontFamily:'inherit' }}>
-              취소
-            </button>
+            <button onClick={() => { setShowCropModal(false); setCropSrc(''); }} style={{ background:'rgba(255,255,255,0.1)', border:'1px solid rgba(255,255,255,0.2)', borderRadius:10, padding:'9px 16px', color:'#fff', fontSize:13, cursor:'pointer', fontFamily:'inherit' }}>취소</button>
           </div>
         </div>
       )}
